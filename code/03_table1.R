@@ -10,7 +10,11 @@ library(htmltools)
 rm(list = ls())
 
 # Load data
-data <- read_parquet("/Users/cdiaz/Desktop/SRP/SRP SOFA/output/intermediate/sipa_features.parquet")
+source("utils/config.R")
+output_path <- config$output_path
+site_name <- config$site_name
+
+data <- read_parquet(paste0(output_path, "/sipa_features.parquet"))
 
 # Correct column names by removing trailing underscore
 setnames(data, names(data), sub("__", "_", names(data)))
@@ -26,9 +30,7 @@ for (var in base_vars) {
   post_col <- paste0(var, "_post")
   if (pre_col %in% names(data) && post_col %in% names(data)) {
     data <- data %>%
-      mutate(!!var := rowMeans(select(., all_of(c(pre_col, post_col))), na.rm = TRUE))
-  }
-}
+      mutate(!!var := rowMeans(select(., all_of(c(pre_col, post_col))), na.rm = TRUE))}}
 
 # This script outputs a Table 1 as an HTML.
 
@@ -39,8 +41,7 @@ med_iqr <- function(x) {
   paste0(formatC(median(x), digits=1, format="f"),
          " (", 
          formatC(quantile(x, 0.25), digits=1, format="f"), ", ",
-         formatC(quantile(x, 0.75), digits=1, format="f"), ")")
-}
+         formatC(quantile(x, 0.75), digits=1, format="f"), ")")}
 
 # Summarize to hospitalization_id (ICU encounter) level
 data_summary <- data %>%
@@ -193,9 +194,7 @@ for (v in numeric_vars) {
   table1[[display_name]] <- setNames(
     c(ifelse("Survivor" %in% res$Survival, res$stat[res$Survival == "Survivor"], ""),
       ifelse("Non-Survivor" %in% res$Survival, res$stat[res$Survival == "Non-Survivor"], "")),
-    c("Survivor", "Non-Survivor")
-  )
-}
+    c("Survivor", "Non-Survivor"))}
 
 # Build the table in the desired order
 desired_order <- c(
@@ -214,21 +213,17 @@ table1_df <- tibble::tibble(
   Variable = desired_order,
   Survivor = sapply(desired_order, function(x) {
     if (!is.null(table1[[x]]) && "Survivor" %in% names(table1[[x]])) table1[[x]][["Survivor"]] else
-      if (!is.null(table1[[x]]) && length(table1[[x]]) == 2 && all(table1[[x]] == "")) "" else ""
-  }),
+      if (!is.null(table1[[x]]) && length(table1[[x]]) == 2 && all(table1[[x]] == "")) "" else ""}),
   `Non-Survivor` = sapply(desired_order, function(x) {
     if (!is.null(table1[[x]]) && "Non-Survivor" %in% names(table1[[x]])) table1[[x]][["Non-Survivor"]] else
-      if (!is.null(table1[[x]]) && length(table1[[x]]) == 2 && all(table1[[x]] == "")) "" else ""
-  })
-)
+      if (!is.null(table1[[x]]) && length(table1[[x]]) == 2 && all(table1[[x]] == "")) "" else ""}))
 
 # Export as a separate HTML file
 table1_html <- table1_df %>%
   mutate(Variable = ifelse(stringr::str_detect(Variable, "^  "), 
                            paste0("&nbsp;&nbsp;", stringr::str_trim(Variable)), 
                            Variable)) %>%
-  kable("html", escape = FALSE, col.names = 
-          c("Variable", "Survivors", "Non-Survivors")) %>%
+  kable("html", escape = FALSE, col.names = c("Variable", "Survivors", "Non-Survivors")) %>%
   kable_styling(
     bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
     full_width = FALSE) %>%
