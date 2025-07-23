@@ -66,4 +66,4 @@ Rscript code/03_table1_edited.R
 
 4.  `03_table1.R`. This script outputs data needed to create a Table 1.
 
-5.  `prelim_analysis.R`. This script trains the models and outputs the results.
+5.  `04_model_training.R` This script trains the models and outputs the results.

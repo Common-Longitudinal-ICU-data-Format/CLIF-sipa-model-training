@@ -1,10 +1,11 @@
 # Load necessary libraries
+print("Creating Table 1")
+
 library(arrow)
 library(tidyverse)
 library(stringr)
-library(kableExtra)
-library(stringr)
-library(htmltools)
+library(data.table)
+library(tictoc)
 
 # Clear env
 rm(list = ls())
@@ -13,6 +14,8 @@ rm(list = ls())
 source("utils/config.R")
 output_path <- config$output_path
 site_name <- config$site_name
+
+tic()
 
 data <- read_parquet(paste0(output_path, "/sipa_features.parquet"))
 
@@ -31,8 +34,6 @@ for (var in base_vars) {
   if (pre_col %in% names(data) && post_col %in% names(data)) {
     data <- data %>%
       mutate(!!var := rowMeans(select(., all_of(c(pre_col, post_col))), na.rm = TRUE))}}
-
-# This script outputs a Table 1 as an HTML.
 
 # Helper for median (IQR)
 med_iqr <- function(x) {
@@ -218,16 +219,8 @@ table1_df <- tibble::tibble(
     if (!is.null(table1[[x]]) && "Non-Survivor" %in% names(table1[[x]])) table1[[x]][["Non-Survivor"]] else
       if (!is.null(table1[[x]]) && length(table1[[x]]) == 2 && all(table1[[x]] == "")) "" else ""}))
 
-# Export as a separate HTML file
-table1_html <- table1_df %>%
-  mutate(Variable = ifelse(stringr::str_detect(Variable, "^  "), 
-                           paste0("&nbsp;&nbsp;", stringr::str_trim(Variable)), 
-                           Variable)) %>%
-  kable("html", escape = FALSE, col.names = c("Variable", "Survivors", "Non-Survivors")) %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
-    full_width = FALSE) %>%
-  scroll_box(width = "100%")
+# Export as a separate CSV file
+write.csv(table1_df, file.path(output_path, paste0("/table1_", site_name, ".csv")), row.names = FALSE)
+print("Table 1 exported as CSV to output_path")
 
-# Save to HTML file
-save_html(table1_html, file = "/Users/cdiaz/Desktop/SRP/SRP SOFA/table1.html")
+toc()
