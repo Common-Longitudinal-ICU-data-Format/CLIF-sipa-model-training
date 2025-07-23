@@ -4,14 +4,12 @@
 
 rm(list = ls())
 
-# Output path
-output_path <- "/Users/cdiaz/Desktop/SRP/SRP SOFA/output/intermediate"
-
 # Access configuration parameters
 source("utils/config.R")
 site_name <- config$site_name
 tables_path <- config$tables_path
 file_type <- config$file_type
+output_path <- config$output_path
 
 # Load necessary libraries
 library(lubridate)
@@ -26,7 +24,6 @@ library(tidyverse)
 clif_respiratory_support <- read_parquet(file.path(tables_path, paste0("clif_respiratory_support", file_type)))
 clif_adt <- read_parquet(file.path(tables_path, paste0("clif_adt", file_type)))
 
-
 # Process the data
 # Courtesy of Nick Ingraham
 #~~~~~~~~~~~~~~~~
@@ -40,7 +37,6 @@ clif_adt <- read_parquet(file.path(tables_path, paste0("clif_adt", file_type)))
 
 hour_sequence <- clif_respiratory_support |> 
   group_by(hospitalization_id)  |> 
-  
   reframe(recorded_dttm = seq(fmin(recorded_dttm), fmax(recorded_dttm), by = "1 hour")) |>
   # Adjust to the last second of the hour using lubridate's floor_date
   mutate(recorded_dttm = floor_date(recorded_dttm, "hour") + minutes(59) + seconds(59)) |> 
@@ -496,7 +492,7 @@ rm(clif_respiratory_support)
 
 # FiO2 Imputation
 ## First map device from Nick's table to device_name
-mapping <- read_csv("code/lookup tables/device_name_mapper.csv")
+mapping <- read_csv("lookup-tables/device_name_mapper.csv")
 mapping_no_dupes <- mapping %>% 
   filter(!is.na(device_name), device_name != "") %>% 
   distinct(device_name, .keep_all = TRUE)
@@ -505,7 +501,7 @@ df_resp_support <- df_resp_support %>%
   left_join(mapping_no_dupes, by ="device_name")
 
 ## Merge ranges and conversion values
-fio2_conversion <- read_csv("code/lookup tables/device_conversion_table_updated.csv")
+fio2_conversion <- read_csv("lookup-tables/device_conversion_table_updated.csv")
 
 df_resp_support_conv <- df_resp_support %>%
   left_join(fio2_conversion, by = "device") 
@@ -538,3 +534,4 @@ summary(df_resp_support_conv$fio2_approx)
 
 # Save the processed data
 write_parquet(df_resp_support_conv, file.path(output_path, paste0("clif_respiratory_support_processed", file_type)))
+print("Table exported as parquet to output_path")

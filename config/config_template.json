@@ -1,5 +1,5 @@
 {
-    "site_name": "Your_Site_Name",
-    "tables_path": "/path/to/tables/",
-    "file_type": "csv/parquet/fst"
+    "site_name": "The University of Chicago",
+    "tables_path": "/Users/cdiaz/Documents/R/Data/MIMIC-CLIF",
+    "file_type": ".parquet"
 }
