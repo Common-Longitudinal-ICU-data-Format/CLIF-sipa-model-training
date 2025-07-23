@@ -1,0 +1,31 @@
+device,range_lower,range_upper,conversion
+Nasal cannula,0.21,0.4,0.03
+Mechanical Ventilator,0.21,1.0,
+BiPAP/CPAP,0.21,1.0,0.04
+High Flow Nasal Cannula (HFNC),0.21,1.0,0.04
+Trach dome,0.21,0.81,0.04
+Oxymask,0.21,0.9,0.04
+Ventilator,0.21,1.0,
+Simple face mask,0.21,0.5,0.03
+Nasal cannula with humidification,0.21,0.4,0.03
+Oxi Plus,0.21,0.9,0.04
+Trach mask,0.21,0.81,0.04
+Simple mask,0.21,0.5,0.03
+Oxymizer,0.21,0.81,0.04
+CPAP,0.21,1.0,0.04
+Oxymizer cannula,0.21,0.81,0.04
+Face tent,0.4,0.5,
+Bi-Pap,0.21,1.0,0.04
+High-flow NC,0.21,1.0,0.04
+Oscillator Vent Settings,0.21,1.0,
+Non-rebreather mask,0.21,0.95,0.06
+Aerosol mask,0.21,0.6,0.03
+Cool Aerosol,0.21,0.6,0.03
+Partial rebreather mask,0.21,0.81,0.04
+Venturi mask,0.21,0.8,
+Oxygen hood,0.21,0.81,0.04
+ETT,0.21,1.0,
+High flow nasal cannula,0.21,1.0,0.04
+Partial Rebreather,0.21,0.81,0.04
+Headbox/Hood,0.21,0.81,0.04
+Ram Cannula,0.21,0.84,0.04
