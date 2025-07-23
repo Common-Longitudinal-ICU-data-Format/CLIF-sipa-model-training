@@ -55,7 +55,8 @@ Rscript code/00_renv_restore.R
 Rscript code/0a_respiratory_support_waterfall.R
 Rscript code/01_cohort_identification.R
 Rscript code/02_feature_set_processing.R
-Rscript code/03_table1_edited.R
+Rscript code/03_table1.R
+Rscript code/04_model_training.R
 ```
 
 1.  `0a_respiratory_support_waterfall.R`. This script runs Nick Ingraham's respiratory waterfall algorithm which will horizontally fill in various device categories. Requires lookup-tables `device_conversion_table_updated` and `device_name_mapper`.
