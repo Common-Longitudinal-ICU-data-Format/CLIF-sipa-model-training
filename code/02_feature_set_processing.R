@@ -3,22 +3,31 @@
 #################################################
 
 # Load necessary libraries
+print("Initialized Feature Set Processing Script")
+
 library(arrow)
 library(tidyverse)
 library(stringr)
 library(data.table)
-
+library(tictoc)
 # Clear env
 rm(list = ls())
 
+# Path
+source("utils/config.R")
+output_path <- config$output_path
+
 # Load data
-data <- read_parquet("/Users/cdiaz/Desktop/SRP/SRP SOFA/output/intermediate/sofaclif_cohort.parquet")
+data <- read_parquet(paste0(output_path, "/sipa_clif_cohort.parquet"))
+
+# Convert to data.table
 setDT(data)
 
 ################
 ### Vectorized SOFA score calculation
 ################
 
+tic()
 compute_sofa_score_vec <- function(p_f, s_f, platelets, bilirubin, map, dopamine, dobutamine, norepinephrine, epinephrine, gcs, creatinine) {
   
   # Respiration (PaO2/FiO2 or SaO2/FiO2 ratio)
@@ -161,5 +170,8 @@ final_data <- merge(patient_data, wide_data, by = "hospitalization_id", all.x = 
 pre_cols <- names(final_data)[grepl("_pre$", names(final_data))]
 final_data <- final_data[rowSums(final_data[, ..pre_cols] == 0 | is.na(final_data[, ..pre_cols]), na.rm = TRUE) < length(pre_cols)]
 
+
 # Export final data
-write_parquet(final_data, "/Users/cdiaz/Desktop/SRP/SRP SOFA/output/intermediate/sipa_features.parquet")
+write_parquet(final_data, paste0(output_path, "/sipa_features.parquet"))
+toc()
+print("Feature set exported to output_path")
