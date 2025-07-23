@@ -7,6 +7,9 @@ library(tictoc)
 library(mgcv)
 library(lightgbm)
 
+source("utils/config.R")
+output_path <- config$output_path
+
 set.seed(42) # the meaning of life
 
 # Clear environment
@@ -385,6 +388,7 @@ model_df <- data.frame(
 folds <- createFolds(model_df$output, k = 5, list = TRUE)
 auc_values <- numeric(5)
 models <- vector("list", 5)
+
 # Drops angiotensin from pre and post
 for(i in seq_along(folds)) {
   train_idx <- setdiff(seq_len(nrow(model_df)), folds[[i]])
@@ -737,8 +741,17 @@ best_model_info <- models_and_aucs[[which.max(sapply(models_and_aucs, function(x
 cat("Best Model:", best_model_info$name, "\n")
 cat("Best AUC:", best_model_info$auc, "\n")
 
+# Save the best model
+if (grepl("LightGBM", best_model_info$name)) {
+  lgb.save(best_model_info$model, file.path(output_path, "best_model.txt"))
+} else {
+  saveRDS(best_model_info$model, file.path(output_path, "best_model.rds"))
+}
+
 # Print hyperparameters if they exist
 if (!is.null(best_model_info$model$bestTune)) {
   cat("Hyperparameters:\n")
   print(best_model_info$model$bestTune)
 }
+
+print("Finished. Check the output folder for best_model.")
