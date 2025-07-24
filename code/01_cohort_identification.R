@@ -44,6 +44,10 @@ true_tables <- list("clif_medication_admin_continuous", "clif_patient",
                     "clif_hospitalization", "clif_adt", "clif_respiratory_support",
                     "clif_labs", "clif_vitals", "clif_patient_assessments")
 
+# Dates REQUIRED YYYY-MM-DD format
+admission_date_min <-"2018-01-01"
+admission_date_max <- "2023-12-31"
+
 # Set paths
 
 source("utils/config.R")
@@ -77,6 +81,8 @@ hospitalization <- tbl(con, "clif_hospitalization") %>%
   filter(discharge_dttm >= admission_dttm) %>% 
   filter(!is.na(discharge_dttm) & !is.na(admission_dttm))%>%
   filter(age_at_admission >= 18) %>% 
+  # Filter by admission date -- not applicable for MIMIC 
+  filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
   collect()
 
 # Pull IDs
