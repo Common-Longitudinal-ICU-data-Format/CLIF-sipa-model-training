@@ -1,5 +1,6 @@
 {
-    "site_name": "The University of Chicago",
-    "tables_path": "/Users/cdiaz/Documents/R/Data/MIMIC-CLIF",
-    "file_type": ".parquet"
+    "site_name": "",
+    "tables_path": "",
+    "file_type": "",
+    "output_path": ""
 }
