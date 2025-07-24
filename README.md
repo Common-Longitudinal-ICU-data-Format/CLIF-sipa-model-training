@@ -26,7 +26,7 @@ Please refer to the online [CLIF data dictionary](https://clif-consortium.github
 
 ## Cohort identification
 
-The study population included all adults (age \>= 18 years) that were admitted to the intensive care unit and identified as having been on life support for at least six hours. Life support was defined as receiving vasoactive medications, invasive or non-invasive mechanical ventilation, or high-flow/facemask oxygen therapy for hypoxic respiratory failure.
+The study population included all adults (age \>= 18 years) that were admitted to the intensive care unit and identified as having been on life support for at least six hours. Life support was defined as receiving vasoactive medications, invasive or non-invasive mechanical ventilation, or high-flow/facemask oxygen therapy for hypoxic respiratory failure. In addition, the years selected are **beginning of 2018 through the end of 2023**.
 
 ## Expected Results
 
@@ -44,14 +44,12 @@ Run `00_renv_restore.R` to set up the project environment
 
 ## 3. Run code
 
-Run code in the following order:
+Please read items 1-5 carefully. Run code in the following order:
 
 ```{bash}
 #!/bin/bash
 
 # This script runs the R scripts in the correct order.
-
-Rscript code/00_renv_restore.R
 Rscript code/0a_respiratory_support_waterfall.R
 Rscript code/01_cohort_identification.R
 Rscript code/02_feature_set_processing.R
@@ -61,7 +59,7 @@ Rscript code/04_model_training.R
 
 1.  `0a_respiratory_support_waterfall.R`. This script runs Nick Ingraham's respiratory waterfall algorithm which will horizontally fill in various device categories. Requires lookup-tables `device_conversion_table_updated` and `device_name_mapper`.
 
-2.  `01_cohort_identification.R`. This script creates the cohort dataframe.
+2.  `01_cohort_identification.R`. This script creates the cohort dataframe. This script also outputs data needed to create a STROBE diagram. Make sure to specify the correct dates to select from `clif_hospitalization`.
 
 3.  `02_feature_set_processing.R`. This script creates the feature set needed to train/test the model.
 
