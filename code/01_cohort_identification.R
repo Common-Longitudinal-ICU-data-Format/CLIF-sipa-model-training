@@ -73,17 +73,23 @@ cohort_tracking <- function(exclusion_reason, current_data, cohort_table){
 
 tic()
 # Exclusion and Inclusion Criteria
-# Age
-# First slice: Exclusion criteria: Age < 18
+
 hospitalization <- tbl(con, "clif_hospitalization") %>%
   select(hospitalization_id, patient_id, admission_dttm, discharge_dttm, age_at_admission, discharge_name, discharge_category, zipcode_nine_digit, 
          zipcode_five_digit, census_block_code) %>% 
   filter(discharge_dttm >= admission_dttm) %>% 
   filter(!is.na(discharge_dttm) & !is.na(admission_dttm))%>%
-  filter(age_at_admission >= 18) %>% 
   # Filter by admission date -- not applicable for MIMIC 
-  filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
+  # filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
   collect()
+
+# Start cohort tracking
+cohort_table <- cohort_tracking("Total Hospitalizations", hospitalization, cohort_table)
+
+# Age
+# First slice: Exclusion criteria: Age < 18
+hospitalization <- hospitalization %>%
+  filter(age_at_admission >= 18)
 
 # Pull IDs
 hosp_ids <- hospitalization %>% 
@@ -805,51 +811,7 @@ ls_encs_hours <- ls_encs %>%
 hosp_by_hour_ls <- ls_encs_hours %>% 
   left_join(hosp_by_hour, by = c("hospitalization_id", "meas_hour", "meas_date"))
 
-cohort_table <- cohort_tracking("Life Support Only", hosp_by_hour_ls, cohort_table)
-
-#############
-# For each hospitalization, check if the 42 hours 
-# before the life support start time has any data
-#############
-
-no_data_hosp_ids <- hosp_by_hour_ls %>%
-  mutate(
-    time_str = str_c(str_pad(meas_hour, 2, pad = "0"), "00", "00", sep = ":"),
-    datetime_str = str_c(meas_date, time_str, sep = " "),
-    meas_dttm = as.POSIXct(datetime_str, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
-  ) %>% 
-  select(-time_str, -datetime_str, -txnDt)
-
-# Select variables of interest
-no_data_hosp_ids <- no_data_hosp_ids %>% 
-  select(hospitalization_id, window_start, life_support_start, meas_dttm, 
-         fio2_filled, pao2_filled, max_creatinine, max_bilirubin,
-         min_plt_count, min_spo2, min_map, gcs_total, pao2_imputed,
-         p_f, p_f_imputed, s_f, norepinephrine, phenylephrine,
-         vasopressin, epinephrine, dopamine, dobutamine, milrinone, angiotensin) %>% 
-  filter(meas_dttm >= window_start & meas_dttm < life_support_start) 
-
-
-# Check if all columns of interest are NA for each hospitalization ID
-cols_to_check <- setdiff(
-  names(no_data_hosp_ids),
-  c("hospitalization_id", "window_start", 
-    "meas_dttm", "life_support_start")
-)
-
-setDT(no_data_hosp_ids) # Convert to data.table for efficient operations
-
-# For each hospitalization_id, check if ALL rows have ALL NAs in cols_to_check
-ids_all_na <- no_data_hosp_ids[
-  , all_na := all(rowSums(!is.na(.SD)) == 0), 
-  by = hospitalization_id, 
-  .SDcols = cols_to_check][all_na == TRUE, .(hospitalization_id)][, unique(hospitalization_id)]
-
-
-# Convert to a data frame
-ids_all_na <- as.data.frame(ids_all_na)
-
-# Remove these IDs from the cohort
+cohort_table <- cohort_tracking("Life Support For At Least 6 Hours", hosp_by_hour_ls, cohort_table)
 
 # Cohort Demographics
 # Bring in patient demographics
@@ -885,8 +847,11 @@ cohort_final <- cohort %>%
 
 
 cohort_table <- cohort_tracking("Final", cohort_final, cohort_table)
+
 toc()
 
+write.csv(cohort_table, file.path(output_path, "inclusion_table.csv"), row.names = FALSE)
 write_parquet(cohort_final, file.path(output_path, paste0("sipa_clif_cohort", file_type)))
 print("Data exported as parquet to output_path")
+print("Cohort tracking table exported as csv to output_path")
 print(cohort_table)
