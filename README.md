@@ -2,7 +2,7 @@
 
 ## CLIF VERSION
 
-2.0
+2.1
 
 ## Objective
 
@@ -63,6 +63,6 @@ Rscript code/04_model_training.R
 
 3.  `02_feature_set_processing.R`. This script creates the feature set needed to train/test the model.
 
-4.  `03_table1.R`. This script outputs data needed to create a Table 1.
+4.  `03_table1.R`. This script outputs data needed to create a Table 1. It also outputs a STROBE diagram.
 
 5.  `04_model_training.R` This script trains the models and outputs the results.
