@@ -15,7 +15,7 @@ set.seed(42) # the meaning of life
 # Clear environment
 rm(list = ls())
 # Load data
-data <- read_parquet("/Users/cdiaz/Desktop/SRP/SRP SOFA/output/intermediate/sipa_features.parquet")
+data <- read_parquet(paste0(output_path, "/sipa_features.parquet"))
 
 # Define output vector and input matrix. Input matrices:
 
