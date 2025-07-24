@@ -6,6 +6,9 @@ library(tidyverse)
 library(stringr)
 library(data.table)
 library(tictoc)
+library(DiagrammeR)
+library(glue)
+library(vtree)
 
 # Clear env
 rm(list = ls())
@@ -15,8 +18,96 @@ source("utils/config.R")
 output_path <- config$output_path
 site_name <- config$site_name
 
-tic()
+# Load data
+source("utils/config.R")
+output_path <- config$output_path
+site_name <- config$site_name
 
+
+# Construct a STROBE diagram
+inclusion_table <- read.csv(file.path(output_path, "inclusion_table.csv"))
+
+strobe_diagram <- DiagrammeR::grViz(glue("
+  digraph STROBE {{
+    graph [layout = dot, rankdir = TB]
+    
+    # Define node styles
+    node [shape = box, style = filled, fillcolor = white, fontname = Arial]
+    
+    # Define nodes
+    A [label = 'Total Hospitalizations
+(n = {inclusion_table[1,2]})']
+    B [shape = point, style = invisible, width = 0, height = 0]
+    C [label = 'Hospitalizations excluded
+(age < 18)
+(n = {inclusion_table[1,2] - inclusion_table[2,2]})', fillcolor = lightcoral]
+    D [label = 'Hospitalizations with an ICU stay
+(n = {inclusion_table[2,2]})', fillcolor = lightblue]
+    E [shape = point, style = invisible, width = 0, height = 0]
+    F [label = 'Hospitalizations excluded
+(No life support data)
+(n = {inclusion_table[2,2] - inclusion_table[3,2]})', fillcolor = lightcoral]
+    G [label = 'Hospitalizations with life support data
+(n = {inclusion_table[3,2]})', fillcolor = lightblue]
+    H [shape = point, style = invisible, width = 0, height = 0]
+    I [label = 'Hospitalizations excluded
+(No lab data)
+(n = {inclusion_table[3,2] - inclusion_table[4,2]})', fillcolor = lightcoral]
+    J [label = 'Hospitalizations with lab data
+(n = {inclusion_table[4,2]})', fillcolor = lightblue]
+    K [shape = point, style = invisible, width = 0, height = 0]
+    L [label = 'Hospitalizations excluded
+(No vitals data)
+(n = {inclusion_table[4,2] - inclusion_table[5,2]})', fillcolor = lightcoral]
+    M [label = 'Hospitalizations with vitals data
+(n = {inclusion_table[5,2]})', fillcolor = lightblue]
+    N [shape = point, style = invisible, width = 0, height = 0]
+    O [label = 'Hospitalizations excluded
+(No GCS data)
+(n = {inclusion_table[5,2] - inclusion_table[6,2]})', fillcolor = lightcoral]
+    P [label = 'Hospitalizations with GCS data
+(n = 80424)', fillcolor = lightblue]
+    Q [shape = point, style = invisible, width = 0, height = 0]
+    R [label = 'Hospitalizations excluded
+(Not on life support for 6 consecutive hours)
+(n = {80424 - 38107})', fillcolor = lightcoral]
+    S [label = 'Final cohort
+(n = 38107)', fillcolor = lightblue]
+
+    # Define same rank for B and C to position them horizontally
+    {{rank = same; B; C}}
+    {{rank = same; E; F}}
+    {{rank = same; H; I}}
+    {{rank = same; K; L}}
+    {{rank = same; N; O}}
+    {{rank = same; Q; R}}
+    
+    # Define edges
+    A -> B [arrowhead = none] 
+    B -> C 
+    B -> D
+    D -> E [arrowhead = none]
+    E -> F
+    E -> G
+    G -> H [arrowhead = none]
+    H -> I
+    H -> J
+    J -> K [arrowhead = none]
+    K -> L
+    K -> M
+    M -> N [arrowhead = none]
+    N -> O
+    N -> P
+    P -> Q [arrowhead = none]
+    Q -> R
+    Q -> S
+  }}
+"))
+
+# Save the diagram as a PNG file
+grVizToPNG(strobe_diagram, width = 600, height = 700, "output")
+
+# Load the SIPA features dataset
 data <- read_parquet(paste0(output_path, "/sipa_features.parquet"))
 
 # Correct column names by removing trailing underscore
