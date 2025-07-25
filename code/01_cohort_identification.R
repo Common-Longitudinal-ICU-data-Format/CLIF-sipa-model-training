@@ -75,8 +75,7 @@ tic()
 # Exclusion and Inclusion Criteria
 
 hospitalization <- tbl(con, "clif_hospitalization") %>%
-  select(hospitalization_id, patient_id, admission_dttm, discharge_dttm, age_at_admission, discharge_name, discharge_category, zipcode_nine_digit, 
-         zipcode_five_digit, census_block_code) %>% 
+  select(hospitalization_id, patient_id, admission_dttm, discharge_dttm, age_at_admission, discharge_name, discharge_category) %>% 
   filter(discharge_dttm >= admission_dttm) %>% 
   filter(!is.na(discharge_dttm) & !is.na(admission_dttm))%>%
   # Filter by admission date -- not applicable for MIMIC 
@@ -817,7 +816,6 @@ cohort_table <- cohort_tracking("Life Support For At Least 6 Hours", hosp_by_hou
 # Bring in patient demographics
 hosp_patient_ids <- tbl(con, "clif_hospitalization") %>% 
   select(hospitalization_id, patient_id, age_at_admission,
-         zipcode_nine_digit, zipcode_five_digit, census_block_group_code, 
          admission_dttm, discharge_dttm) %>% 
   distinct() %>% 
   collect()
