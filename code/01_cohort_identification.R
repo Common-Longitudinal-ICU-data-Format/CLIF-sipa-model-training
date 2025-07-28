@@ -808,8 +808,7 @@ toc()
 # Cohort Demographics
 # Bring in patient demographics
 hosp_patient_ids <- tbl(con, "clif_hospitalization") %>% 
-  select(hospitalization_id, patient_id, age_at_admission,
-         zipcode_nine_digit, zipcode_five_digit, census_block_group_code, 
+  select(hospitalization_id, patient_id, age_at_admission, 
          admission_dttm, discharge_dttm) %>% 
   distinct() %>% 
   collect()
