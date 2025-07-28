@@ -166,11 +166,6 @@ patient_data <- unique(data[, .(patient_id, hospitalization_id, zipcode_nine_dig
 # Join summarized data with patient data
 final_data <- merge(patient_data, wide_data, by = "hospitalization_id", all.x = TRUE)
 
-# Remove rows where all pre-life support data is NA or 0
-pre_cols <- names(final_data)[grepl("_pre$", names(final_data))]
-final_data <- final_data[rowSums(final_data[, ..pre_cols] == 0 | is.na(final_data[, ..pre_cols]), na.rm = TRUE) < length(pre_cols)]
-
-
 # Export final data
 write_parquet(final_data, paste0(output_path, "/sipa_features.parquet"))
 toc()
