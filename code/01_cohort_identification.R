@@ -285,19 +285,15 @@ cohort_table <- cohort_tracking("Adding Respiratory Support Data", hosp_by_hour,
 
 tic("Adding Lab Data")
 # Labs
-required_lab_names <- c("Platelet Count", "Bilirubin, Total", "Creatinine", "pO2", 
-                        "Bilirubin, Indirect", "Arterial O2 pressure", "pCO2", 
-                        "Creatinine, Whole Blood", "SvO2", "Oxygen Saturation", 
-                        "Hemoglobin", "Bilirubin, Direct", "Arterial CO2 Pressure", 
-                        "Arterial O2 Saturation")
+required_lab_categories <- c("po2_arterial", "bilirubin_total", "platelet_count", "creatinine")
 
 labs <- tbl(con, "clif_labs") %>%
-  filter(lab_name %in% required_lab_names) %>% 
+  filter(lab_category %in% required_lab_categories) %>% 
   filter(
-    (lab_name == "Platelet Count" & lab_value_numeric > 0 & lab_value_numeric <= 832) | 
-      (lab_name == "Bilirubin, Total" & lab_value_numeric > 0 & lab_value_numeric <= 50) |
-      (lab_name == "Arterial O2 pressure" & lab_value_numeric > 30 & lab_value_numeric <= 800) |
-      (lab_name == "Creatinine" & lab_value_numeric > 0 & lab_value_numeric <= 30)
+    (lab_category == "platelet_count" & lab_value_numeric > 0 & lab_value_numeric <= 832) | 
+      (lab_category == "bilirubin_total" & lab_value_numeric > 0 & lab_value_numeric <= 50) |
+      (lab_category == "po2_arterial" & lab_value_numeric > 30 & lab_value_numeric <= 800) |
+      (lab_category == "creatinine" & lab_value_numeric > 0 & lab_value_numeric <= 30)
   ) %>% 
   collect()
 
