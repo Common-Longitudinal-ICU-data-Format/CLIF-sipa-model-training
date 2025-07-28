@@ -1,5 +1,3 @@
-print("Initialized Cohort Identification Script")
-
 library(knitr)
 library(here)
 library(tidyverse)
@@ -7,35 +5,43 @@ library(arrow)
 library(gtsummary)
 library(stringr)
 library(duckdb)
+library(DBI)
 library(tictoc)
 library(dtplyr)
 library(data.table)
 library(jsonlite)
 library(fst)
+
+print("Initialized Cohort Identification Script")
+tic("Script Completion")
+
 rm(list = ls())
 
-# DuckDB Helper function
-read_data <- function(file_path) {
-  if (grepl("\\.csv$", file_path)) {
-    return(read.csv(file_path))
-  } else if (grepl("\\.parquet$", file_path)) {
-    return(arrow::read_parquet(file_path))
-  } else if (grepl("\\.fst$", file_path)) {
-    return(fst::read.fst(file_path))
-  } else {
-    stop("Unsupported file format")
-  }
-}
-
-# DuckDB Writing Function
 write_files_to_duckdb <- function(files, tables_location, file_type, con) {
   for (file_name in files) {
-    file_path <- file.path(tables_location, paste0(file_name, file_type))
-    data <- as.data.frame(read_data(file_path))
     table_name <- tools::file_path_sans_ext(file_name)
-    duckdb::dbWriteTable(con, table_name, data, overwrite = TRUE)
-    message("Wrote table: ", table_name, " from file: ", file_name)
-    rm(data)
+    file_path <- file.path(tables_location, paste0(file_name, file_type))
+    if (grepl("\\.parquet$", file_type)) {
+      DBI::dbExecute(con, sprintf(
+        "CREATE OR REPLACE TABLE %s AS SELECT * FROM read_parquet('%s')",
+        table_name, file_path
+      ))
+      message("Loaded parquet table: ", table_name)
+    } else if (grepl("\\.csv$", file_type)) {
+      DBI::dbExecute(con, sprintf(
+        "CREATE OR REPLACE TABLE %s AS SELECT * FROM read_csv_auto('%s')",
+        table_name, file_path
+      ))
+      message("Loaded csv table: ", table_name)
+    } else if (grepl("\\.fst$", file_type)) {
+      # fst not directly supported: read into R then write to DuckDB
+      data <- fst::read.fst(file_path)
+      duckdb::dbWriteTable(con, table_name, data, overwrite = TRUE)
+      rm(data)
+      message("Loaded fst table: ", table_name)
+    } else {
+      stop("Unsupported file format")
+    }
   }
 }
 
@@ -59,9 +65,13 @@ file_type <- config$file_type
 output_path <- config$output_path
 
 
+tic("Setting up DuckDB and loading data")
 # Set up DuckDB connection
-con <- duckdb::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+con <- duckdb::dbConnect(duckdb::duckdb(), dbdir = tempfile())
+DBI::dbExecute(con, "INSTALL icu")
+DBI::dbExecute(con, "LOAD icu")
 write_files_to_duckdb(true_tables, tables_path, file_type, con)
+toc()
 
 # Function to track sample size for different slices
 cohort_table <- data.frame(Reason = character(), N = integer(), stringsAsFactors = FALSE)
@@ -69,7 +79,6 @@ cohort_tracking <- function(exclusion_reason, current_data, cohort_table){
   n <- as.numeric(n_distinct(current_data$hospitalization_id))
   new_row <- data.frame(Reason = exclusion_reason, N = n)
   bind_rows(cohort_table, new_row)}
-
 
 tic()
 # Exclusion and Inclusion Criteria
@@ -122,7 +131,6 @@ adt_adults <- hosp_ids %>%
   select(hospitalization_id) %>% 
   distinct()
 
-
 hospitalization <- adt_adults %>% 
   left_join(hospitalization, by = "hospitalization_id")
 
@@ -159,34 +167,30 @@ hosp_by_hour <- vital_min_max_time %>%
   arrange(hospitalization_id, txnDt, meas_date, meas_hour) %>%
   select(hospitalization_id, meas_date, meas_hour)
 
-
-
+tic("Respiratory Support Data Processing")
 # Respiratory Support
 ## Load data and rename columns
 ## The loaded file was processed by the script: 0a_respiratory_support_waterfall.R
-resp_support <- read_parquet("output/clif_respiratory_support_processed.parquet") %>% 
-  rename(meas_date = recorded_date) %>% 
-  rename(meas_hour = recorded_hour)
+resp_support <- read_parquet("output/clif_respiratory_support_processed.parquet")
+
+# Convert to data.table
+setDT(resp_support)
+
+# Rename columns
+setnames(resp_support, "recorded_date", "meas_date")
+setnames(resp_support, "recorded_hour", "meas_hour")
 
 ## There are duplicates in meas_date, hour and hospitalization ID combinations
 ## For each hour, select the row that has the least number of NAs
-resp_support_min_na <- resp_support %>%
-  mutate(n_na = rowSums(is.na(.))) %>%
-  group_by(hospitalization_id, meas_hour, meas_date) %>%
-  filter(n_na == min(n_na)) %>%
-  ungroup() %>%
-  select(-n_na)
+resp_support[, n_na := rowSums(is.na(.SD))]
+resp_support_min_na <- resp_support[resp_support[, .I[n_na == min(n_na)], by = .(hospitalization_id, meas_hour, meas_date)]$V1]
+resp_support_min_na[, n_na := NULL]
 
 ## Remove remaining duplicates
-resp_support_min_na <- resp_support_min_na %>%
-  distinct(hospitalization_id, meas_hour, meas_date, .keep_all = TRUE)
+resp_support_min_na <- unique(resp_support_min_na, by = c("hospitalization_id", "meas_hour", "meas_date"))
 
 ## Remove CPAP
-resp_support_final <- resp_support_min_na %>% 
-  inner_join(hosp_ids, by = c("hospitalization_id"), copy = TRUE) %>%
-  select(hospitalization_id, recorded_dttm, mode_category, 
-         device_category, device_name, lpm_set, fio2_approx, peep_set, tidal_volume_set) %>%  
-  filter(!(device_category == "CPAP" & (is.na(fio2_approx) | fio2_approx < 0.3)))
+resp_support_final <- resp_support_min_na[!(device_category == "CPAP" & (is.na(fio2_approx) | fio2_approx < 0.3))]
 
 
 ## Create a new device category column
@@ -194,89 +198,60 @@ vent_modes <- c("SIMV", "Pressure-Regulated Volume Control",
                 "Assist Control-Volume Control", "Pressure Support/CPAP", 
                 "Pressure Control", "Volume Support")
 
-resp_support_final <- resp_support_min_na %>% 
-  mutate(device_category_2 = case_when(
-    mode_category %in% vent_modes ~ "Vent",
-    device_category == "IMV" ~ "Vent",
-    !is.na(device_category) ~ device_category,
-    is.na(device_category) & fio2_approx == 0.21 & is.na(lpm_set) & is.na(peep_set) & is.na(tidal_volume_set) ~ "Room Air",
-    is.na(device_category) & is.na(fio2_approx) & lpm_set == 0 & is.na(peep_set) & is.na(tidal_volume_set) ~ "Room Air",
-    is.na(device_category) & is.na(fio2_approx) & lpm_set <= 20 & lpm_set > 0 & is.na(peep_set) & is.na(tidal_volume_set) ~ "Nasal Cannula",
-    is.na(device_category) & is.na(fio2_approx) & lpm_set > 20 & is.na(peep_set) & is.na(tidal_volume_set) ~ "High Flow NC",
-    device_category == "Nasal Cannula" & is.na(fio2_approx) & lpm_set > 20 ~ "High Flow NC",
-    TRUE ~ device_category # Keep original device_category if no condition is met
-  ))
+resp_support_final[, device_category_2 := fcase(
+  mode_category %in% vent_modes, "Vent",
+  device_category == "IMV", "Vent",
+  !is.na(device_category), device_category,
+  is.na(device_category) & fio2_approx == 0.21 & is.na(lpm_set) & is.na(peep_set) & is.na(tidal_volume_set), "Room Air",
+  is.na(device_category) & is.na(fio2_approx) & lpm_set == 0 & is.na(peep_set) & is.na(tidal_volume_set), "Room Air",
+  is.na(device_category) & is.na(fio2_approx) & lpm_set <= 20 & lpm_set > 0 & is.na(peep_set) & is.na(tidal_volume_set), "Nasal Cannula",
+  is.na(device_category) & is.na(fio2_approx) & lpm_set > 20 & is.na(peep_set) & is.na(tidal_volume_set), "High Flow NC",
+  device_category == "Nasal Cannula" & is.na(fio2_approx) & lpm_set > 20, "High Flow NC",
+  default = device_category
+)]
 
 ## Select needed columns from resp_support
-resp_support_final <- resp_support_final %>%
-  select(hospitalization_id, device_category_2, recorded_dttm, fio2_approx, lpm_set) %>%
-  mutate(meas_hour = hour(recorded_dttm),
-         meas_date = as.Date(recorded_dttm))
+resp_support_final <- resp_support_final[, .(hospitalization_id, device_category_2, recorded_dttm, fio2_approx, lpm_set, meas_hour, meas_date)]
 
 ## Create Device Category Ranking
 ## First, rank devices in order to select most intense device used for each hour
 ## Second, determine max FiO2 for each hour
 ## Third, associate most intense device with FiO2 for each hour
 
-device_rank <- function(device_category_2) {
-  case_when(
-    device_category_2 == 'Vent' ~ 1,
-    device_category_2 == 'NIPPV' ~ 2,
-    device_category_2 == 'CPAP' ~ 3,
-    device_category_2 == 'High Flow NC' ~ 4,
-    device_category_2 == 'Face Mask' ~ 5,
-    device_category_2 == 'Trach Collar' ~ 6,
-    device_category_2 == 'Nasal Cannula' ~ 7,
-    device_category_2 == 'Other' ~ 8,
-    device_category_2 == 'Room Air' ~ 9,
-    TRUE ~ NA_integer_
-  )
-}
+device_rank_lookup <- c(
+  'Vent' = 1,
+  'NIPPV' = 2,
+  'CPAP' = 3,
+  'High Flow NC' = 4,
+  'Face Mask' = 5,
+  'Trach Collar' = 6,
+  'Nasal Cannula' = 7,
+  'Other' = 8,
+  'Room Air' = 9
+)
 
 # Apply device rankings
-resp_support_final <- resp_support_final %>%
-  mutate(device_rank = device_rank(device_category_2))
+resp_support_final[, device_rank := device_rank_lookup[device_category_2]]
 
 ### Max fio2 per hour
-fio2_max <- resp_support_final %>%
-  select(hospitalization_id, meas_date, meas_hour, fio2_approx) %>%
-  filter(!is.na(fio2_approx)) %>%
-  group_by(hospitalization_id, meas_date, meas_hour) %>%
-  slice_max(fio2_approx)
+fio2_max <- resp_support_final[!is.na(fio2_approx), .(fio2_approx = max(fio2_approx, na.rm = TRUE)), by = .(hospitalization_id, meas_date, meas_hour)]
 
 ### Group by person, measurement date and measurement hour 
 ### Get most intense device within each hour
-device_max <- resp_support_final %>%
-  select(hospitalization_id, meas_date, meas_hour, device_rank) %>%
-  filter(!is.na(device_rank)) %>%
-  group_by(hospitalization_id, meas_date, meas_hour) %>%
-  slice_min(device_rank, with_ties = FALSE)
+device_max <- resp_support_final[!is.na(device_rank), .(device_rank = min(device_rank, na.rm = TRUE)), by = .(hospitalization_id, meas_date, meas_hour)]
 
-device_category <- function(device_rank) {
-  case_when(
-    device_rank == 1 ~ 'Vent',
-    device_rank == 2 ~ 'NIPPV',
-    device_rank == 3 ~ 'CPAP',
-    device_rank == 4 ~ 'High Flow NC',
-    device_rank == 5 ~ 'Face Mask',
-    device_rank == 6 ~ 'Trach Collar',
-    device_rank == 7 ~ 'Nasal Cannula',
-    device_rank == 8 ~ 'Other',
-    device_rank == 9 ~ 'Room Air',
-    TRUE ~ NA_character_
-  )
-}
+# Create the reverse lookup vector
+device_category_lookup <- names(device_rank_lookup)
+names(device_category_lookup) <- device_rank_lookup
 
 ### Revert back to categories from rank
-device_max <- device_max %>%
-  mutate(device_category = device_category(device_rank))
+device_max[, device_category := device_category_lookup[as.character(device_rank)]]
 
 ### Add to encounters by hour
-hosp_by_hour <- hosp_by_hour %>% 
-  left_join(fio2_max, by = c("hospitalization_id", "meas_hour", "meas_date"))
+hosp_by_hour <- merge(hosp_by_hour, fio2_max, by = c("hospitalization_id", "meas_hour", "meas_date"), all.x = TRUE)
+hosp_by_hour <- merge(hosp_by_hour, device_max, by = c("hospitalization_id", "meas_hour", "meas_date"), all.x = TRUE)
 
-hosp_by_hour <- hosp_by_hour %>% 
-  left_join(device_max, by = c("hospitalization_id", "meas_hour", "meas_date"))
+toc()
 
 ### Clear memory
 rm(device_max)
@@ -293,7 +268,7 @@ hosp_by_hour <- hosp_by_hour %>%
   fill(device_category, .direction = "down") %>%
   mutate(device_filled = ifelse(is.na(device_category), NA, device_category))
 
-## Carry forward FiO2 measurement name until another device is recorded 
+## Carry forward FiO2 measurement until another device is recorded 
 ## or the end of the measurement time window
 hosp_by_hour <- hosp_by_hour %>%
   mutate(fio2_approx = as.double(fio2_approx)) %>%
@@ -308,12 +283,14 @@ hosp_by_hour <- hosp_by_hour %>%
 
 cohort_table <- cohort_tracking("Adding Respiratory Support Data", hosp_by_hour, cohort_table)
 
+tic("Adding Lab Data")
 # Labs
 required_lab_names <- c("Platelet Count", "Bilirubin, Total", "Creatinine", "pO2", 
                         "Bilirubin, Indirect", "Arterial O2 pressure", "pCO2", 
                         "Creatinine, Whole Blood", "SvO2", "Oxygen Saturation", 
                         "Hemoglobin", "Bilirubin, Direct", "Arterial CO2 Pressure", 
                         "Arterial O2 Saturation")
+
 labs <- tbl(con, "clif_labs") %>%
   filter(lab_name %in% required_lab_names) %>% 
   filter(
@@ -408,6 +385,7 @@ hosp_by_hour <- hosp_by_hour %>%
 
 cohort_table <- cohort_tracking("Adding Lab Data", hosp_by_hour, cohort_table)
 
+toc()
 ### Save some memory
 rm(labs)
 rm(bilirubin)
@@ -420,6 +398,7 @@ rm(resp_support)
 rm(vital_min_max_time)
 
 
+tic("Adding Vitals")
 # Vitals: SpO2 and MAP
 # Need: SpO2 and MAP
 required_vitals <- c("map", "spo2", "weight_kg")
@@ -509,6 +488,8 @@ rm(map)
 rm(weight_kg)
 rm(spo2)
 
+toc()
+
 # Create PaO2/FiO2 and SpO2/FiO2 ratio columns
 hosp_by_hour <- hosp_by_hour %>%
   mutate(p_f = ifelse(!is.na(fio2_filled) & !is.na(pao2_filled), pao2_filled / fio2_filled, NA),
@@ -522,6 +503,8 @@ hosp_by_hour <- hosp_by_hour %>%
   fill(weight_kg, .direction = "down") %>%
   ungroup()
 
+
+tic("Adding Medications")
 # MEDICATIONS
 pressors <- tbl(con, "clif_medication_admin_continuous") %>%
   filter(med_group == "vasoactives") %>%
@@ -717,6 +700,10 @@ rm(pressors_wide)
 rm(med_dose_wide)
 rm(med_dose_converted_wide)
 
+toc()
+
+
+tic("Adding Assessments")
 # Assessments
 # Need: GCS
 ## Load data
@@ -745,6 +732,10 @@ rm(assessments)
 
 cohort_table <- cohort_tracking("Adding GCS", hosp_by_hour, cohort_table)
 
+toc()
+
+
+tic("Flagging Life Support")
 # Life Support
 ## Flag if on life support in a given hour
 hosp_by_hour <- hosp_by_hour %>%
@@ -813,6 +804,8 @@ hosp_by_hour_ls <- ls_encs_hours %>%
 
 cohort_table <- cohort_tracking("Life Support For At Least 6 Hours", hosp_by_hour_ls, cohort_table)
 
+toc()
+
 # Cohort Demographics
 # Bring in patient demographics
 hosp_patient_ids <- tbl(con, "clif_hospitalization") %>% 
@@ -855,3 +848,5 @@ write_parquet(cohort_final, file.path(output_path, paste0("sipa_clif_cohort", fi
 print("Data exported as parquet to output_path")
 print("Cohort tracking table exported as csv to output_path")
 print(cohort_table)
+duckdb::dbDisconnect(con, shutdown=TRUE)
+
