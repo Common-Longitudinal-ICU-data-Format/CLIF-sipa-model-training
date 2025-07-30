@@ -84,8 +84,7 @@ tic()
 # Exclusion and Inclusion Criteria
 
 hospitalization <- tbl(con, "clif_hospitalization") %>%
-  select(hospitalization_id, patient_id, admission_dttm, discharge_dttm, age_at_admission, discharge_name, discharge_category, zipcode_nine_digit, 
-         zipcode_five_digit, census_block_code) %>% 
+  select(hospitalization_id, patient_id, admission_dttm, discharge_dttm, age_at_admission, discharge_name, discharge_category) %>% 
   filter(discharge_dttm >= admission_dttm) %>% 
   filter(!is.na(discharge_dttm) & !is.na(admission_dttm))%>%
   # Filter by admission date -- not applicable for MIMIC 
@@ -314,7 +313,8 @@ ids_by_hour <- hosp_by_hour %>%
 
 pao2_hours <- left_join(ids_by_hour, pao2) %>%
   arrange(hospitalization_id, meas_date, meas_hour) %>%
-  distinct() %>% collect()
+  distinct() %>% 
+  collect()
 
 pao2_hours <- pao2_hours %>%
   mutate(dttm = as_datetime(paste0(meas_date, " ", meas_hour, ":00"), format = "%Y-%m-%d %H:%M"))
@@ -502,6 +502,27 @@ hosp_by_hour <- hosp_by_hour %>%
 
 tic("Adding Medications")
 # MEDICATIONS
+
+# The following medication columns must be used across the consortium:
+med_vars <- c(
+  "norepinephrine",
+  "epinephrine",
+  "phenylephrine",
+  "dopamine",
+  "metaraminol",
+  "vasopressin",
+  "angiotensin",
+  "dobutamine")
+
+med_vars_ne_eq <- paste0(med_vars, "_ne_eq")
+
+# Function to add missing medication columns
+add_missing_meds <- function(df, meds) {
+  missing <- setdiff(meds, names(df))
+  df[missing] <- 0
+  df
+}
+
 pressors <- tbl(con, "clif_medication_admin_continuous") %>%
   filter(med_group == "vasoactives") %>%
   mutate(meas_hour = hour(admin_dttm),
@@ -517,7 +538,7 @@ pressors_with_weight <- pressors %>%
             by = c("hospitalization_id", "meas_date", "meas_hour")) %>% 
   distinct()
 
-# Function to convert norepinephrine equivalents
+# Function to get norepinephrine equivalent conversion factors
 get_conversion_factor <- function(med_category, med_dose_unit, weight_kg) {
   # 1) Retrieve medication info (if missing, return NA)
   med_info <- med_unit_info[[med_category]]
@@ -535,7 +556,7 @@ get_conversion_factor <- function(med_category, med_dose_unit, weight_kg) {
   # Group 1: norepinephrine, epinephrine, phenylephrine, dopamine, metaraminol, dobutamine
   #   required_unit: "mcg/kg/min"
   if (med_category %in% c("norepinephrine", "epinephrine", "phenylephrine",
-                          "dopamine", "milrinone", "dobutamine")) {
+                          "dopamine", "milrinone", "dobutamine", "metaraminol")) {
     if (med_dose_unit == "mcg/kg/min") {
       factor <- 1
     } else if (med_dose_unit == "mcg/kg/hr") {
@@ -552,7 +573,6 @@ get_conversion_factor <- function(med_category, med_dose_unit, weight_kg) {
     # Group 2: angiotensin
     #   required_unit: "mcg/kg/min"
   } else if (med_category == "angiotensin") {
-    
     if (med_dose_unit == "ng/kg/min") {
       factor <- 1 / 1000
     } else if (med_dose_unit == "ng/kg/hr") {
@@ -563,7 +583,6 @@ get_conversion_factor <- function(med_category, med_dose_unit, weight_kg) {
     # Group 3: vasopressin
     #   required_unit: "units/min"
   } else if (med_category == "vasopressin") {
-    
     if (med_dose_unit == "units/min") {
       factor <- 1
     } else if (med_dose_unit == "units/hr") {
@@ -586,37 +605,28 @@ get_conversion_factor <- function(med_category, med_dose_unit, weight_kg) {
 med_unit_info <- list(
   norepinephrine = list(
     required_unit = "mcg/kg/min",
-    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")
-  ),
+    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")),
   epinephrine = list(
     required_unit = "mcg/kg/min",
-    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")
-  ),
+    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")),
   phenylephrine = list(
     required_unit = "mcg/kg/min",
-    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")
-  ),
+    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")),
   vasopressin = list(
     required_unit = "units/min",
-    acceptable_units = c("units/min", "units/hr", "milliunits/min", "milliunits/hr")
-  ),
+    acceptable_units = c("units/min", "units/hr", "milliunits/min", "milliunits/hr")),
   dopamine = list(
     required_unit = "mcg/kg/min",
-    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")
-  ),
+    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")),
   angiotensin = list(
     required_unit = "mcg/kg/min",
-    acceptable_units = c("ng/kg/min", "ng/kg/hr")
-  ),
+    acceptable_units = c("ng/kg/min", "ng/kg/hr")),
   dobutamine = list(
     required_unit = "mcg/kg/min",
-    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")
-  ),
+    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")),
   milrinone = list(
     required_unit = "mcg/kg/min",
-    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")
-  )
-)
+    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")))
 
 # Convert medication doses to norepinephrine equivalents
 # Name: med name + ne_equiv
@@ -628,8 +638,7 @@ pressors_with_weight <- pressors_with_weight %>%
 pressors_with_weight <- pressors_with_weight %>%
   mutate(
     conversion_factor = mapply(get_conversion_factor, med_category, med_dose_unit, weight_kg),
-    med_dose_converted = round(med_dose * conversion_factor, 3)
-  )
+    med_dose_converted = round(med_dose * conversion_factor, 3))
 
 # Pivot wide for normal med doses
 med_dose_wide <- pressors_with_weight %>%
@@ -638,11 +647,12 @@ med_dose_wide <- pressors_with_weight %>%
   pivot_wider(
     names_from = med_category,
     values_from = med_dose,
-    values_fn = max
-  ) %>% 
+    values_fn = max) %>% 
+  add_missing_meds(med_vars) %>% 
   arrange(hospitalization_id, meas_date, meas_hour)
 
 # Pivot wide for norepinephrine equivalents
+# Adds norepinephrine_eq formula 
 med_dose_converted_wide <- pressors_with_weight %>%
   mutate(med_category_ne_eq = paste0(med_category, "_ne_eq")) %>%
   select(hospitalization_id, med_category_ne_eq, 
@@ -650,16 +660,24 @@ med_dose_converted_wide <- pressors_with_weight %>%
   pivot_wider(
     names_from = med_category_ne_eq,
     values_from = med_dose_converted,
-    values_fn = max
-  ) %>% 
-  arrange(hospitalization_id, meas_date, meas_hour)
+    values_fn = max) %>% 
+  add_missing_meds(med_vars_ne_eq) %>%
+  mutate(norepinephrine_eq =
+      coalesce(norepinephrine_ne_eq, 0) +
+      coalesce(epinephrine_ne_eq, 0) +
+      coalesce(phenylephrine_ne_eq, 0) / 10 +
+      coalesce(dopamine_ne_eq, 0) / 100 +
+      coalesce(metaraminol_ne_eq, 0) / 8 +
+      coalesce(vasopressin_ne_eq, 0) * 2.5 +
+      coalesce(angiotensin_ne_eq, 0) * 10) %>% 
+  arrange(hospitalization_id, meas_date, meas_hour) %>% 
+  select(hospitalization_id, meas_date, meas_hour, norepinephrine_eq)
 
 # Combine both wide dataframes
 pressors_wide <- med_dose_wide %>%
   left_join(med_dose_converted_wide, 
             by = c("hospitalization_id", "meas_hour", "meas_date")) %>%
   distinct()
-
 
 ## Get max num pressors (cap at 4) per hour
 ## Keep dobutamine alone
@@ -670,11 +688,10 @@ max_pressors <- pressors %>%
     num_pressors = n_distinct(med_category),
     num_pressors = ifelse(num_pressors > 4, 4, num_pressors),
     dobutamine_alone = as.integer(all(med_list == "dobutamine") & length(med_list) == 1),
-    .groups = "drop"
-  )
+    .groups = "drop")
 
 
-## Merge max number of pressors and pressors to main dataframe hosp_by_hour!
+## Merge max number of pressors and pressor doses to main dataframe hosp_by_hour!
 hosp_by_hour <- hosp_by_hour %>% 
   left_join(pressors_wide, by = c("hospitalization_id", 
                                   "meas_date", "meas_hour")) %>% 
@@ -743,13 +760,10 @@ hosp_by_hour <- hosp_by_hour %>%
       num_pressors >= 1 ~ 1,
       TRUE ~ 0
     ),
-    life_support_reason = case_when(device_filled %in% c('NIPPV', 
-                                                         'Vent', 'High Flow NC') ~ device_filled,
-                                    p_f < 200 | p_f_imputed < 200 ~ "P:F < 200",
-                                    num_pressors >= 1 ~ "Pressors",
-                                    TRUE ~ NA_character_
-    )
-  ) %>% 
+    life_support_reason = case_when(device_filled %in% c('NIPPV', 'Vent', 'High Flow NC') ~ device_filled,
+    p_f < 200 | p_f_imputed < 200 ~ "P:F < 200",
+    num_pressors >= 1 ~ "Pressors",
+    TRUE ~ NA_character_)) %>% 
   group_by(hospitalization_id) %>%
   fill(life_support_reason, .direction = "down") %>%
   ungroup()
@@ -806,7 +820,6 @@ toc()
 # Bring in patient demographics
 hosp_patient_ids <- tbl(con, "clif_hospitalization") %>% 
   select(hospitalization_id, patient_id, age_at_admission,
-         zipcode_nine_digit, zipcode_five_digit, census_block_group_code, 
          admission_dttm, discharge_dttm) %>% 
   distinct() %>% 
   collect()
