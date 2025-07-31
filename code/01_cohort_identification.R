@@ -87,8 +87,8 @@ hospitalization <- tbl(con, "clif_hospitalization") %>%
   select(hospitalization_id, patient_id, admission_dttm, discharge_dttm, age_at_admission, discharge_name, discharge_category) %>% 
   filter(discharge_dttm >= admission_dttm) %>% 
   filter(!is.na(discharge_dttm) & !is.na(admission_dttm))%>%
-  # Filter by admission date -- not applicable for MIMIC. Comment out for MIMIC
-  filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
+  # Filter by admission date -- not applicable for MIMIC 
+  # filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
   collect()
 
 # Start cohort tracking
@@ -502,6 +502,27 @@ hosp_by_hour <- hosp_by_hour %>%
 
 tic("Adding Medications")
 # MEDICATIONS
+
+# The following medication columns must be used across the consortium:
+med_vars <- c(
+  "norepinephrine",
+  "epinephrine",
+  "phenylephrine",
+  "dopamine",
+  "metaraminol",
+  "vasopressin",
+  "angiotensin",
+  "dobutamine")
+
+med_vars_ne_eq <- paste0(med_vars, "_ne_eq")
+
+# Function to add missing medication columns
+add_missing_meds <- function(df, meds) {
+  missing <- setdiff(meds, names(df))
+  df[missing] <- 0
+  df
+}
+
 pressors <- tbl(con, "clif_medication_admin_continuous") %>%
   filter(med_group == "vasoactives") %>%
   mutate(meas_hour = hour(admin_dttm),
@@ -535,7 +556,7 @@ get_conversion_factor <- function(med_category, med_dose_unit, weight_kg) {
   # Group 1: norepinephrine, epinephrine, phenylephrine, dopamine, metaraminol, dobutamine
   #   required_unit: "mcg/kg/min"
   if (med_category %in% c("norepinephrine", "epinephrine", "phenylephrine",
-                          "dopamine", "milrinone", "dobutamine")) {
+                          "dopamine", "milrinone", "dobutamine", "metaraminol")) {
     if (med_dose_unit == "mcg/kg/min") {
       factor <- 1
     } else if (med_dose_unit == "mcg/kg/hr") {
@@ -615,6 +636,10 @@ med_unit_info <- list(
   milrinone = list(
     required_unit = "mcg/kg/min",
     acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")
+  ),
+  metaraminol = list(
+    required_unit = "mcg/kg/min",
+    acceptable_units = c("mcg/kg/min", "mcg/kg/hr", "mg/kg/hr", "mcg/min", "mg/hr")
   )
 )
 
@@ -638,11 +663,12 @@ med_dose_wide <- pressors_with_weight %>%
   pivot_wider(
     names_from = med_category,
     values_from = med_dose,
-    values_fn = max
-  ) %>% 
+    values_fn = max) %>% 
+  add_missing_meds(med_vars) %>% 
   arrange(hospitalization_id, meas_date, meas_hour)
 
 # Pivot wide for norepinephrine equivalents
+# Adds norepinephrine_eq formula 
 med_dose_converted_wide <- pressors_with_weight %>%
   mutate(med_category_ne_eq = paste0(med_category, "_ne_eq")) %>%
   select(hospitalization_id, med_category_ne_eq, 
@@ -650,9 +676,18 @@ med_dose_converted_wide <- pressors_with_weight %>%
   pivot_wider(
     names_from = med_category_ne_eq,
     values_from = med_dose_converted,
-    values_fn = max
-  ) %>% 
-  arrange(hospitalization_id, meas_date, meas_hour)
+    values_fn = max) %>% 
+  add_missing_meds(med_vars_ne_eq) %>%
+  mutate(norepinephrine_eq =
+      coalesce(norepinephrine_ne_eq, 0) +
+      coalesce(epinephrine_ne_eq, 0) +
+      coalesce(phenylephrine_ne_eq, 0) / 10 +
+      coalesce(dopamine_ne_eq, 0) / 100 +
+      coalesce(metaraminol_ne_eq, 0) / 8 +
+      coalesce(vasopressin_ne_eq, 0) * 2.5 +
+      coalesce(angiotensin_ne_eq, 0) * 10) %>% 
+  arrange(hospitalization_id, meas_date, meas_hour) %>% 
+  select(hospitalization_id, meas_date, meas_hour, norepinephrine_eq)
 
 # Combine both wide dataframes
 pressors_wide <- med_dose_wide %>%
