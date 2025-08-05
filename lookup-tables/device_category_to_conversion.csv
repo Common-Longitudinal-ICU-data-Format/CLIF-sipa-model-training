@@ -1,0 +1,11 @@
+device_category,device,range_lower,range_upper,conversion
+NA,Other,,,
+Nasal Cannula,Nasal cannula,0.21,0.4,0.03
+NIPPV,Bi-Pap,0.21,1.0,0.04
+Other,Other,,,
+IMV,ETT,0.21,1.0,
+High Flow NC,High flow nasal cannula,0.21,1.0,0.04
+Face Mask,Simple face mask,0.21,0.5,0.03
+Room Air,Other,,,
+CPAP,CPAP,0.21,1.0,0.04
+Trach Collar,Trach mask,0.21,0.81,0.04
