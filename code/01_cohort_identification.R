@@ -167,6 +167,7 @@ hosp_by_hour <- vital_min_max_time %>%
   select(hospitalization_id, meas_date, meas_hour)
 
 tic("Respiratory Support Data Processing")
+
 # Respiratory Support
 ## Load data and rename columns
 ## The loaded file was processed by the script: 0a_respiratory_support_waterfall.R
@@ -190,7 +191,6 @@ resp_support_min_na <- unique(resp_support_min_na, by = c("hospitalization_id", 
 
 ## Remove CPAP
 resp_support_final <- resp_support_min_na[!(device_category == "CPAP" & (is.na(fio2_approx) | fio2_approx < 0.3))]
-
 
 ## Create a new device category column
 vent_modes <- c("SIMV", "Pressure-Regulated Volume Control", 
