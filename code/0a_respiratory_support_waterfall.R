@@ -490,46 +490,41 @@ rm(clif_adt)
 rm(clif_respiratory_support)
 
 
-# FiO2 Imputation
-## First map device from Nick's table to device_name
-mapping <- read_csv("lookup-tables/device_name_mapper.csv")
-mapping_no_dupes <- mapping %>% 
-  filter(!is.na(device_name), device_name != "") %>% 
-  distinct(device_name, .keep_all = TRUE)
+# Load the device_category to ranges mapping table
+category_values <- read_csv("lookup-tables/device_category_to_conversion.csv")
 
+# Ensure device_category is trimmed of whitespace and merge with mapping
 df_resp_support <- df_resp_support %>%
-  left_join(mapping_no_dupes, by ="device_name")
+  mutate(device_category = str_trim(device_category)) %>%
+  left_join(category_values, by = "device_category")
 
-## Merge ranges and conversion values
-fio2_conversion <- read_csv("lookup-tables/device_conversion_table_updated.csv")
-
-df_resp_support_conv <- df_resp_support %>%
-  left_join(fio2_conversion, by = "device") 
-
-## Check ranges for fio2_set
-df_resp_support_conv <- df_resp_support_conv %>% 
+# Check ranges for fio2_set
+df_resp_support_conv <- df_resp_support %>% 
   mutate(fio2_set = case_when(
-    !is.na(fio2_set) & fio2_set < range_lower ~ range_lower,
-    !is.na(fio2_set) & fio2_set > range_upper ~ range_upper,
-    TRUE ~ fio2_set
-  ))
+    !is.na(fio2_set) & !is.na(range_lower) & fio2_set < range_lower ~ range_lower,
+    !is.na(fio2_set) & !is.na(range_upper) & fio2_set > range_upper ~ range_upper,
+    TRUE ~ fio2_set))
 
-## Impute FiO2 values when fio2_set == NA and lpm_set != NA
-## Ensure that imputed values fall within the defined ranges
+# Impute FiO2 values when fio2_set is NA and lpm_set is not NA
 df_resp_support_conv <- df_resp_support_conv %>%
   mutate(fio2_set = case_when(
     is.na(fio2_set) & !is.na(lpm_set) & !is.na(conversion) ~ {
       fio2_imp <- 0.21 + lpm_set * conversion
       pmin(pmax(fio2_imp, range_lower), range_upper)
     },
-    TRUE ~ fio2_set
-  ))
+    TRUE ~ fio2_set))
 
-## Rename fio2_set to fio2_approx
+# Rename fio2_set to fio2_approx
 df_resp_support_conv <- df_resp_support_conv %>% 
   rename(fio2_approx = fio2_set)
 
 summary(df_resp_support$fio2_set)
+summary(df_resp_support_conv$fio2_approx)
+
+# If there are still NA values in fio2_approx, set them to range_lower if available
+df_resp_support_conv <- df_resp_support_conv %>%
+  mutate(fio2_approx = ifelse(is.na(fio2_approx) & !is.na(range_lower), range_lower, fio2_approx))
+
 summary(df_resp_support_conv$fio2_approx)
 
 # Save the processed data
