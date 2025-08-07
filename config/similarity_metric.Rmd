@@ -1,0 +1,234 @@
+---
+title: "similarity metric developement"
+output: html_notebook
+---
+
+In this notebook, we are going to develop a similarity metric for the feature sets we have created. This will be used to compare different feature sets and determine how similar they are to each other.
+
+We focus on key SOFA-related variables: creatinine, platelets, bilirubin, p_f, s_f, gcs, and norepinephrine_eq.
+
+```{r}
+library(tidyverse)
+library(here)
+library(arrow)
+```
+
+# Load in feature sets
+```{r}
+ucmc_features <- read_parquet("/Users/williamparker/Desktop/CLIF_tables/sipa_feature_extract/sipa_features_ucmc.parquet")
+
+mimic_features <- read_parquet("/Users/williamparker/Desktop/CLIF_tables/sipa_feature_extract/sipa_features_mimic.parquet")
+```
+
+# Select key variables
+```{r}
+# Define variables of interest
+key_vars <- c(
+  "hospitalization_id",
+  "race_category", 
+  "sex_category", 
+  "age_at_admission",
+  "creatinine_pre", "creatinine_post",
+  "platelets_pre", "platelets_post", 
+  "bilirubin_pre", "bilirubin_post",
+  "p_f_pre", "p_f_post",
+  "s_f_pre", "s_f_post", 
+  "gcs_pre", "gcs_post",
+  "norepinephrine_eq_pre", "norepinephrine_eq_post"
+)
+
+# Select key variables from both datasets
+ucmc_selected <- ucmc_features %>% 
+  select(all_of(key_vars))
+
+mimic_selected <- mimic_features %>% 
+  select(all_of(key_vars))
+```
+
+```{r}
+# impute zero for norepinephrine_eq_pre and post
+ucmc_selected <- ucmc_selected %>%
+  mutate(norepinephrine_eq_pre = ifelse(is.na(norepinephrine_eq_pre), 0, norepinephrine_eq_pre),
+         norepinephrine_eq_post = ifelse(is.na(norepinephrine_eq_post), 0, norepinephrine_eq_post))
+
+mimic_selected <- mimic_selected %>%
+  mutate(norepinephrine_eq_pre = ifelse(is.na(norepinephrine_eq_pre), 0, norepinephrine_eq_pre),
+         norepinephrine_eq_post = ifelse(is.na(norepinephrine_eq_post), 0, norepinephrine_eq_post))
+
+
+# summarize the proportion of missingness of each variable
+ucmc_selected %>%
+  summarise(across(everything(), ~ sum(is.na(.)) / n())) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "missing_proportion")
+```
+# Compute the worst value of each variable
+```{r}
+#generate a new _overall column for each variable
+ucmc_selected <- ucmc_selected %>%
+  mutate(
+    creatinine_overall = pmax(creatinine_pre, creatinine_post, na.rm = TRUE),
+    platelets_overall = pmin(platelets_pre, platelets_post, na.rm = TRUE),
+    bilirubin_overall = pmax(bilirubin_pre, bilirubin_post, na.rm = TRUE),
+    p_f_overall = pmin(p_f_pre, p_f_post, na.rm = TRUE),
+    s_f_overall = pmin(s_f_pre, s_f_post, na.rm = TRUE),
+    gcs_overall = pmin(gcs_pre, gcs_post, na.rm = TRUE),
+    norepinephrine_eq_overall = pmax(norepinephrine_eq_pre, norepinephrine_eq_post, na.rm = TRUE)
+  )
+
+mimic_selected <- mimic_selected %>%
+  mutate(
+    creatinine_overall = pmax(creatinine_pre, creatinine_post, na.rm = TRUE),
+    platelets_overall = pmin(platelets_pre, platelets_post, na.rm = TRUE),
+    bilirubin_overall = pmax(bilirubin_pre, bilirubin_post, na.rm = TRUE),
+    p_f_overall = pmin(p_f_pre, p_f_post, na.rm = TRUE),
+    s_f_overall = pmin(s_f_pre, s_f_post, na.rm = TRUE),
+    gcs_overall = pmin(gcs_pre, gcs_post, na.rm = TRUE),
+    norepinephrine_eq_overall = pmax(norepinephrine_eq_pre, norepinephrine_eq_post, na.rm = TRUE)
+  )
+
+
+# keep only the overall variables and the demographics
+ucmc_selected <- ucmc_selected %>%
+  select(hospitalization_id, ends_with("_overall"))
+
+
+# drop p_f_overall
+ucmc_selected <- ucmc_selected %>%
+  select(-p_f_overall)
+
+# impute normal values for missing variables
+ucmc_selected <- ucmc_selected %>%
+  mutate(
+    creatinine_overall = ifelse(is.na(creatinine_overall), 1, creatinine_overall),
+    platelets_overall = ifelse(is.na(platelets_overall), 300, platelets_overall),
+    bilirubin_overall = ifelse(is.na(bilirubin_overall), 1, bilirubin_overall),
+    s_f_overall = ifelse(is.na(s_f_overall), 480, s_f_overall),
+    gcs_overall = ifelse(is.na(gcs_overall), 15, gcs_overall),
+    norepinephrine_eq_overall = ifelse(is.na(norepinephrine_eq_overall), 0, norepinephrine_eq_overall)
+  )
+
+
+
+#repeat for mimic
+mimic_selected <- mimic_selected %>%
+  select(hospitalization_id, ends_with("_overall"))
+
+mimic_selected <- mimic_selected %>%
+  select(-p_f_overall)
+
+mimic_selected <- mimic_selected %>%
+  mutate(
+    creatinine_overall = ifelse(is.na(creatinine_overall), 1, creatinine_overall),
+    platelets_overall = ifelse(is.na(platelets_overall), 300, platelets_overall),
+    bilirubin_overall = ifelse(is.na(bilirubin_overall), 1, bilirubin_overall),
+    s_f_overall = ifelse(is.na(s_f_overall), 480, s_f_overall),
+    gcs_overall = ifelse(is.na(gcs_overall), 15, gcs_overall),
+    norepinephrine_eq_overall = ifelse(is.na(norepinephrine_eq_overall), 0, norepinephrine_eq_overall)
+  )
+
+
+```
+
+# perform PCA on both feature datasets
+```{r}
+ucmc_pca <- prcomp(ucmc_selected %>% select(-hospitalization_id), center = TRUE, scale. = TRUE)
+
+mimic_pca <- prcomp(mimic_selected %>% select(-hospitalization_id), center = TRUE, scale. = TRUE)
+```
+
+# Calculate subspace angle similarity between eigenspaces
+```{r}
+# Function to calculate subspace angles between two sets of principal components
+calculate_subspace_angles <- function(pc1, pc2, k = NULL) {
+  # If k is not specified, use the minimum number of components
+  if (is.null(k)) {
+    k <- min(ncol(pc1), ncol(pc2))
+  }
+  
+  # Take first k principal components
+  U1 <- pc1[, 1:k]
+  U2 <- pc2[, 1:k]
+  
+  # Calculate the SVD of U1^T * U2
+  svd_result <- svd(t(U1) %*% U2)
+  
+  # Principal angles are arccos of the singular values
+  # Clamp values to [0,1] to handle numerical precision issues
+  cos_angles <- pmin(pmax(svd_result$d, 0), 1)
+  angles <- acos(cos_angles)
+  
+  return(angles)
+}
+
+# Function to calculate similarity metrics from subspace angles
+calculate_similarity_metrics <- function(angles) {
+  # Convert angles from radians to degrees for interpretation
+  angles_deg <- angles * 180 / pi
+  
+  # Calculate various similarity metrics
+  metrics <- list(
+    # Mean cosine similarity (closer to 1 = more similar)
+    mean_cos_similarity = mean(cos(angles)),
+    
+    # RMS angle (closer to 0 = more similar)
+    rms_angle_deg = sqrt(mean(angles_deg^2)),
+    
+    # Maximum angle (smaller = more similar)
+    max_angle_deg = max(angles_deg),
+    
+    # Frobenius similarity (0 to 1, closer to 1 = more similar) 
+    frobenius_similarity = sqrt(sum(cos(angles)^2) / length(angles)),
+    
+    # Individual angles in degrees
+    angles_deg = angles_deg
+  )
+  
+  return(metrics)
+}
+
+# Extract rotation matrices (principal component loadings)
+ucmc_loadings <- ucmc_pca$rotation
+mimic_loadings <- mimic_pca$rotation
+
+# Calculate subspace angles for different numbers of components
+k_values <- c(2, 3, 4, 5, 6)  # Test different subspace dimensions
+
+subspace_results <- map_dfr(k_values, function(k) {
+  angles <- calculate_subspace_angles(ucmc_loadings, mimic_loadings, k = k)
+  metrics <- calculate_similarity_metrics(angles)
+  
+  tibble(
+    k_components = k,
+    mean_cos_similarity = metrics$mean_cos_similarity,
+    rms_angle_deg = metrics$rms_angle_deg,
+    max_angle_deg = metrics$max_angle_deg,
+    frobenius_similarity = metrics$frobenius_similarity
+  )
+})
+
+print("Subspace Angle Similarity Results:")
+print(subspace_results)
+```
+
+```{r}
+# Detailed analysis for k=3 components (commonly used)
+k_detailed <- 3
+angles_detailed <- calculate_subspace_angles(ucmc_loadings, mimic_loadings, k = k_detailed)
+metrics_detailed <- calculate_similarity_metrics(angles_detailed)
+
+cat("Detailed Results for", k_detailed, "Principal Components:\n")
+cat("Mean Cosine Similarity:", round(metrics_detailed$mean_cos_similarity, 4), "\n")
+cat("RMS Angle (degrees):", round(metrics_detailed$rms_angle_deg, 2), "\n")
+cat("Max Angle (degrees):", round(metrics_detailed$max_angle_deg, 2), "\n")
+cat("Frobenius Similarity:", round(metrics_detailed$frobenius_similarity, 4), "\n")
+cat("\nIndividual Subspace Angles (degrees):\n")
+cat(paste(round(metrics_detailed$angles_deg, 2), collapse = ", "), "\n")
+
+# Interpretation guide
+cat("\nInterpretation:\n")
+cat("- Mean Cosine Similarity: 1.0 = identical, 0.0 = orthogonal\n")
+cat("- RMS Angle: 0° = identical, 90° = orthogonal\n")
+cat("- Angles < 30° suggest good similarity\n")
+cat("- Angles > 60° suggest poor similarity\n")
+```
+
