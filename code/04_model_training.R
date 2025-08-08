@@ -1,4 +1,4 @@
-# Load data.
+# Load data 
 library(arrow)
 library(ggplot2)
 library(caret)
@@ -6,6 +6,10 @@ library(pROC)
 library(tictoc)
 library(mgcv)
 library(lightgbm)
+library(tidyverse)
+library(glmnet)
+
+rm(list = ls())
 
 source("utils/config.R")
 output_path <- config$output_path
@@ -13,10 +17,11 @@ output_path <- config$output_path
 set.seed(42) # the meaning of life
 
 # Clear environment
-rm(list = ls())
+
 # Load data
 data <- read_parquet(paste0(output_path, "/sipa_features.parquet"))
 
+tic("Creating input and output vectors.")
 # Define output vector and input matrix. Input matrices:
 
 # 1.  SOFA Score Only
@@ -54,11 +59,13 @@ sofa_age_all <- data %>%
    select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, phenylephrine_pre, norepinephrine_pre, vasopressin_pre, dopamine_pre, dobutamine_pre, milrinone_pre, epinephrine_pre, angiotensin_pre,p_f_post, s_f_post, platelets_post, bilirubin_post, map_post, gcs_post, creatinine_post, phenylephrine_post, norepinephrine_post, vasopressin_post, dopamine_post, dobutamine_post, milrinone_post, epinephrine_post, angiotensin_post, age_at_admission) %>%
     mutate(across(everything(), ~replace_na(.x, 0)))
 
+toc()
+
 # Analysis of Variables
 
 # Run an elastic net model to see which features are selected across all the variables proposed above.
-library(glmnet)
 
+tic("Determine feature importance using elastic net.")
 x_sofa_only_pre <- as.matrix(sofa_only_pre)
 x_sofa_only_all <- as.matrix(sofa_only_all)
 x_sofa_age_pre <- as.matrix(sofa_age_pre)
@@ -80,6 +87,8 @@ sofa_age_all_coef <- coef(cvfit_sofa_age_all, s = "lambda.min")
 
 print(sofa_only_pre_coef)
 print(sofa_only_all_coef)
+
+toc()
 
 # Logistic Regression
 
@@ -696,20 +705,77 @@ toc()
 
 # Save models
 
-# Save AUCs
+tic("Saving models.")
+# Create a directory to save the models
+models_path <- file.path(output_path, "models")
+dir.create(models_path, showWarnings = FALSE)
+
+# Remove training data from caret models before saving
+glm_sofa_score$trainingData <- NULL
+glm_sofa_only_pre$trainingData <- NULL
+glm_sofa_only_all$trainingData <- NULL
+glm_sofa_age_pre$trainingData <- NULL
+glm_sofa_age_all$trainingData <- NULL
+
+glm_sofa_score$finalModel$data <- NULL
+glm_sofa_only_pre$finalModel$data <- NULL
+glm_sofa_only_all$finalModel$data <- NULL
+glm_sofa_age_pre$finalModel$data <- NULL
+glm_sofa_age_all$finalModel$data <- NULL
+
+glm_sofa_score$finalModel$model <- NULL
+glm_sofa_only_pre$finalModel$model <- NULL
+glm_sofa_only_all$finalModel$model <- NULL
+glm_sofa_age_pre$finalModel$model <- NULL
+glm_sofa_age_all$finalModel$model <- NULL
+
+glmnet_sofa_only_pre$trainingData <- NULL
+glmnet_sofa_only_all$trainingData <- NULL
+glmnet_sofa_age_pre$trainingData <- NULL
+glmnet_sofa_age_all$trainingData <- NULL
+
+# Remove training data from GAM models before saving
+gam_sofa_only_pre$data <- NULL
+gam_sofa_only_all$data <- NULL
+gam_sofa_age_pre$data <- NULL
+gam_sofa_age_all$data <- NULL
+
+# Save GLM models
+saveRDS(glm_sofa_score, file.path(models_path, "glm_sofa_score.rds"))
+saveRDS(glm_sofa_only_pre, file.path(models_path, "glm_sofa_only_pre.rds"))
+saveRDS(glm_sofa_only_all, file.path(models_path, "glm_sofa_only_all.rds"))
+saveRDS(glm_sofa_age_pre, file.path(models_path, "glm_sofa_age_pre.rds"))
+saveRDS(glm_sofa_age_all, file.path(models_path, "glm_sofa_age_all.rds"))
+
+# Save GAM models
+saveRDS(gam_sofa_only_pre, file.path(models_path, "gam_sofa_only_pre.rds"))
+saveRDS(gam_sofa_only_all, file.path(models_path, "gam_sofa_only_all.rds"))
+saveRDS(gam_sofa_age_pre, file.path(models_path, "gam_sofa_age_pre.rds"))
+saveRDS(gam_sofa_age_all, file.path(models_path, "gam_sofa_age_all.rds"))
+
+# Save GLMNET models
+saveRDS(glmnet_sofa_only_pre, file.path(models_path, "glmnet_sofa_only_pre.rds"))
+saveRDS(glmnet_sofa_only_all, file.path(models_path, "glmnet_sofa_only_all.rds"))
+saveRDS(glmnet_sofa_age_pre, file.path(models_path, "glmnet_sofa_age_pre.rds"))
+saveRDS(glmnet_sofa_age_all, file.path(models_path, "glmnet_sofa_age_all.rds"))
+
+# Save LightGBM models
+lgb.save(lightgbm_sofa_only_pre, file.path(models_path, "lightgbm_sofa_only_pre.txt"))
+lgb.save(lightgbm_sofa_only_all, file.path(models_path, "lightgbm_sofa_only_all.txt"))
+lgb.save(lightgbm_sofa_age_pre, file.path(models_path, "lightgbm_sofa_age_pre.txt"))
+lgb.save(lightgbm_sofa_age_all, file.path(models_path, "lightgbm_sofa_age_all.txt"))
+
+# Also save the AUCs and model results in a single file for reference
 save(
-  # GLM models
+  # GLM models' results are in the objects
   glm_sofa_score, glm_sofa_only_pre, glm_sofa_only_all, glm_sofa_age_pre, glm_sofa_age_all,
-  # GAM models and AUCs
-  gam_sofa_only_pre, gam_sofa_only_all, gam_sofa_age_pre, gam_sofa_age_all,
+  # GAM models' AUCs
   gam_sofa_only_pre_auc, gam_sofa_only_all_auc, gam_sofa_age_pre_auc, gam_sofa_age_all_auc,
-  # GLMNET models
+  # GLMNET models' results are in the objects
   glmnet_sofa_only_pre, glmnet_sofa_only_all, glmnet_sofa_age_pre, glmnet_sofa_age_all,
-  # LightGBM models and results
-  lightgbm_sofa_only_pre, lightgbm_sofa_only_all, lightgbm_sofa_age_pre, lightgbm_sofa_age_all,
+  # LightGBM results
   lightgbm_sofa_only_pre_results, lightgbm_sofa_only_all_results, lightgbm_sofa_age_pre_results, lightgbm_sofa_age_all_results,
-  # File path
-  file = "/Users/cdiaz/Desktop/SRP/SRP SOFA/output/models/trained_models.rds")
+  file = file.path(models_path, "trained_models_summary.RData"))
 
 # Compare models and select the best one
 
@@ -733,6 +799,8 @@ models_and_aucs <- list(
   list(model = lightgbm_sofa_age_pre, auc = lightgbm_sofa_age_pre_results$best_score, name = "LightGBM SOFA Variables + Age Before"),
   list(model = lightgbm_sofa_age_all, auc = lightgbm_sofa_age_all_results$best_score, name = "LightGBM SOFA Variables + Age Before and After")
 )
+
+toc()
 
 # Find the best model
 best_model_info <- models_and_aucs[[which.max(sapply(models_and_aucs, function(x) x$auc))]]
