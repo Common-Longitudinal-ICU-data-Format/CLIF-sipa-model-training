@@ -88,7 +88,7 @@ hospitalization <- tbl(con, "clif_hospitalization") %>%
   filter(discharge_dttm >= admission_dttm) %>% 
   filter(!is.na(discharge_dttm) & !is.na(admission_dttm))%>%
   # Filter by admission date -- not applicable for MIMIC 
-  # filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
+  filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
   collect()
 
 # Start cohort tracking
