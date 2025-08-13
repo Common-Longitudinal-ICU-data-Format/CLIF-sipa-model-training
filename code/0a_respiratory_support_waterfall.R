@@ -131,12 +131,12 @@ df_resp_support_1 <- df_resp_support_1 |>
       fcase(
         is.na(device_category) & is.na(device_name) &
           str_detect(mode_category, "assist control-volume control|simv|pressure control"),
-        "imv",
+        "IMV",
         rep_len(TRUE, length(device_category)), device_category
       ),
     device_name = 
       fcase(
-        str_detect(device_category, "imv") & is.na(device_name) &
+        str_detect(device_category, "IMV") & is.na(device_name) &
           str_detect(mode_category, "assist control-volume control|simv|pressure control"),
         "mechanical ventilator",
         rep_len(TRUE, length(device_name)), device_name
@@ -147,47 +147,47 @@ df_resp_support_1 <- df_resp_support_1 |>
   # fixing other vent things
   #     If device before is VENT + normal vent things ... its VENT too 
   mutate(device_category = fcase(is.na(device_category) & 
-                                   lag(device_category == "imv") & 
+                                   lag(device_category == "IMV") & 
                                    tidal_volume_set > 1 & 
                                    resp_rate_set > 1 & 
                                    peep_set > 1, 
-                                 "imv", 
+                                 "IMV", 
                                  rep_len(TRUE, length(device_category)), device_category)) |>
   
   #     If device after is VENT + normal vent things ... its VENT too 
   mutate(device_category = fcase(is.na(device_category) & 
-                                   lead(device_category == "imv") & 
+                                   lead(device_category == "IMV") & 
                                    tidal_volume_set > 1 & 
                                    resp_rate_set > 1 & 
                                    peep_set > 1, 
-                                 "imv", 
+                                 "IMV", 
                                  rep_len(TRUE, length(device_category)), device_category)) |>
   
   # same as above for device_name ^^^^^^^^^^^
-  mutate(device_name = fcase(is.na(device_name) & lag(device_category == "imv") & tidal_volume_set > 1 & resp_rate_set > 1 & peep_set > 1, 
+  mutate(device_name = fcase(is.na(device_name) & lag(device_category == "IMV") & tidal_volume_set > 1 & resp_rate_set > 1 & peep_set > 1, 
                              "mechanical ventilation", 
                              rep_len(TRUE, length(device_name)), device_name)) |> 
   
-  mutate(device_name = fcase(is.na(device_name) & lead(device_category == "imv") & tidal_volume_set > 1 & resp_rate_set > 1 & peep_set > 1, 
+  mutate(device_name = fcase(is.na(device_name) & lead(device_category == "IMV") & tidal_volume_set > 1 & resp_rate_set > 1 & peep_set > 1, 
                              "mechanical ventilation", 
                              rep_len(TRUE, length(device_name)), device_name)) |> 
   
   
   # doing this for BiPAP as well 
   mutate(device_category = fcase(is.na(device_category) & 
-                                   lag(device_category == "nippv") & 
+                                   lag(device_category == "NIPPV") & 
                                    # minute_vent_obs > 1 & 
                                    peak_inspiratory_pressure_obs > 1 & 
                                    pressure_support_set > 1, 
-                                 "nippv", 
+                                 "NIPPV", 
                                  rep_len(TRUE, length(device_category)), device_category)) |>
   
   mutate(device_category = fcase(is.na(device_category) & 
-                                   lead(device_category == "nippv") & 
+                                   lead(device_category == "NIPPV") & 
                                    # minute_vent_obs > 1 & 
                                    peak_inspiratory_pressure_obs > 1 & 
                                    pressure_support_set > 1, 
-                                 "nippv", 
+                                 "NIPPV", 
                                  rep_len(TRUE, length(device_category)), device_category)) |>
   
   
@@ -200,16 +200,16 @@ df_resp_support_1 <- df_resp_support_1 |>
     device_category = 
       fcase(
         is.na(device_category) & 
-          (lag(device_category == "imv") | lead(device_category == "imv")) & 
+          (lag(device_category == "IMV") | lead(device_category == "IMV")) & 
           !str_detect(device_name, "trach") &
           tidal_volume_set > 0 & 
           resp_rate_set > 0,
-        "imv",
+        "IMV",
         rep_len(TRUE, length(device_category)), device_category),
     device_name = 
       fcase(
         is.na(device_name) & 
-          (lag(device_category == "imv") | lead(device_category == "imv")) & 
+          (lag(device_category == "IMV") | lead(device_category == "IMV")) & 
           !str_detect(device_name, "trach") &
           tidal_volume_set > 0 & 
           resp_rate_set > 0,
@@ -218,7 +218,7 @@ df_resp_support_1 <- df_resp_support_1 |>
     mode_category = 
       fcase(
         is.na(mode_category) & 
-          (lag(device_category == "imv") | lead(device_category == "imv")) & 
+          (lag(device_category == "IMV") | lead(device_category == "IMV")) & 
           !str_detect(device_name, "trach") &
           tidal_volume_set > 0 & 
           resp_rate_set > 0,
@@ -227,7 +227,7 @@ df_resp_support_1 <- df_resp_support_1 |>
     mode_name = 
       fcase(
         is.na(mode_name) & 
-          (lag(device_category == "imv") | lead(device_category == "imv")) & 
+          (lag(device_category == "IMV") | lead(device_category == "IMV")) & 
           !str_detect(device_name, "trach") &
           tidal_volume_set > 0 & 
           resp_rate_set > 0,
@@ -241,13 +241,13 @@ df_resp_support_1 <- df_resp_support_1 |>
   
   # when bipap is part of a duplicate we need to get rid of it... 
   #     its usually when a vent is STARTED and device is carried over but it goes to a new line with lots of NAs
-  #     the NA line above has the vent settings.  Its best to just drop the nippv line when its a duplicate
+  #     the NA line above has the vent settings.  Its best to just drop the NIPPV line when its a duplicate
   #     if we don't do this... the vent settings get sent backwards across all bipap
   
   mutate(n = n()) |>  
   filter(
-    #  essentially this is... DROP if n>1 and device_cat == nippv
-    !(n > 1 & device_category == "nippv")) |> 
+    #  essentially this is... DROP if n>1 and device_cat == NIPPV
+    !(n > 1 & device_category == "NIPPV")) |> 
   
   # redo n so we keep vent settings from above... now NAs are bad around other things and we should just drop
   mutate(n = n()) |> 
@@ -257,7 +257,7 @@ df_resp_support_1 <- df_resp_support_1 |>
   
   # random carried over bipap sometimes when there is trach next and there is vent before
   filter(
-    !(device_category == "nippv" & lead(device_category == "trach collar") & lag(device_category != "nippv"))
+    !(device_category == "NIPPV" & lead(device_category == "Trach Collar") & lag(device_category != "NIPPV"))
   ) |>
   
   
@@ -284,7 +284,7 @@ df_resp_support_1 <- df_resp_support_1 |>
   group_by(hospitalization_id) |>
   arrange(hospitalization_id, recorded_dttm) |>
   filter(
-    !(device_category == "nasal cannula" & lead(device_category == "imv") & lag(device_category == "imv"))
+    !(device_category == "Nasal Cannula" & lead(device_category == "IMV") & lag(device_category == "IMV"))
   ) |>
   ###########
 # TEMP STOP #
@@ -391,7 +391,7 @@ df_resp_support <- df_resp_support_1 |>
   
   
   # changing fio2_set to 0.21 if room air as category
-  mutate(fio2_set = if_else(is.na(fio2_set) & device_category == "room air", 21, fio2_set)) |> 
+  mutate(fio2_set = if_else(is.na(fio2_set) & device_category == "Room Air", 0.21, fio2_set)) |> 
   
   # erroneous set volumes are in places where they shouldn't be for PS and trach_dome
   mutate(
@@ -523,7 +523,9 @@ summary(df_resp_support_conv$fio2_approx)
 
 # If there are still NA values in fio2_approx, set them to range_lower if available
 df_resp_support_conv <- df_resp_support_conv %>%
-  mutate(fio2_approx = ifelse(is.na(fio2_approx) & !is.na(range_lower), range_lower, fio2_approx))
+  mutate(fio2_approx = ifelse(is.na(fio2_approx) & !is.na(range_lower), range_lower, fio2_approx)) %>% 
+  # Ensure fio2_approx is 0.21 for Room Air, as lookup table doesn't provide range_lower
+  mutate(fio2_approx = ifelse(device_category == "Room Air", 0.21, fio2_approx)) 
 
 summary(df_resp_support_conv$fio2_approx)
 
