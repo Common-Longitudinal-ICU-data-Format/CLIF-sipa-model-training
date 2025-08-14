@@ -11,6 +11,8 @@ library(glmnet)
 library(arrow)
 library(wesanderson)
 
+rm(list = ls())
+
 # Load data
 source("utils/config.R")
 output_path <- config$output_path
@@ -83,8 +85,8 @@ auc_table <- data.frame(
   )
 )
 
-print(kable(auc_table, caption = "AUCs for each model and feature set combination"))
-write.csv(auc_table, file.path(visuals_path, "auc_summary_table.csv"), row.names = FALSE)
+print(auc_table)
+write.csv(auc_table, file.path(visuals_path, "auc_table.csv"), row.names = FALSE)
 
 # Initialize lists to store results
 confusion_matrices <- list()
