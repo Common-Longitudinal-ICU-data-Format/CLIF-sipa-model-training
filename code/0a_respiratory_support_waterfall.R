@@ -393,7 +393,6 @@ df_resp_support <- df_resp_support_1 |>
   
   # changing fio2_set to 0.21 if room air as category
   mutate(fio2_set = if_else(is.na(fio2_set) & device_category == "Room Air", .21, fio2_set)) |> 
-  
   # erroneous set volumes are in places where they shouldn't be for PS and trach_dome
   mutate(
     tidal_volume_set = fifelse(
@@ -524,7 +523,9 @@ summary(df_resp_support_conv$fio2_approx)
 
 # If there are still NA values in fio2_approx, set them to range_lower if available
 df_resp_support_conv <- df_resp_support_conv %>%
-  mutate(fio2_approx = ifelse(is.na(fio2_approx) & !is.na(range_lower), range_lower, fio2_approx))
+  mutate(fio2_approx = ifelse(is.na(fio2_approx) & !is.na(range_lower), range_lower, fio2_approx)) %>% 
+  # Ensure fio2_approx is 0.21 for Room Air, as lookup table doesn't provide range_lower
+  mutate(fio2_approx = ifelse(device_category == "Room Air", 0.21, fio2_approx)) 
 
 summary(df_resp_support_conv$fio2_approx)
 
