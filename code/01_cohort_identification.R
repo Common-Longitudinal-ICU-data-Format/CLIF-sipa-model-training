@@ -12,6 +12,7 @@ library(data.table)
 library(jsonlite)
 library(fst)
 
+
 print("Initialized Cohort Identification Script")
 tic("Script Completion")
 
@@ -88,7 +89,7 @@ hospitalization <- tbl(con, "clif_hospitalization") %>%
   filter(discharge_dttm >= admission_dttm) %>% 
   filter(!is.na(discharge_dttm) & !is.na(admission_dttm))%>%
   # Filter by admission date -- not applicable for MIMIC 
-  filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
+  #filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
   collect()
 
 # Start cohort tracking
@@ -646,11 +647,11 @@ pressors_with_weight <- pressors_with_weight %>%
 
 # Pivot wide for normal med doses
 med_dose_wide <- pressors_with_weight %>%
-  select(hospitalization_id, med_category, med_dose, 
+  select(hospitalization_id, med_category, med_dose_converted, 
          meas_hour, meas_date) %>%
   pivot_wider(
     names_from = med_category,
-    values_from = med_dose,
+    values_from = med_dose_converted,
     values_fn = max) %>% 
   add_missing_meds(med_vars) %>% 
   arrange(hospitalization_id, meas_date, meas_hour)
