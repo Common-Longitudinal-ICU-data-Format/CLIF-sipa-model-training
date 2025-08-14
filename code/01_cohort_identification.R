@@ -88,7 +88,7 @@ hospitalization <- tbl(con, "clif_hospitalization") %>%
   filter(discharge_dttm >= admission_dttm) %>% 
   filter(!is.na(discharge_dttm) & !is.na(admission_dttm))%>%
   # Filter by admission date -- not applicable for MIMIC 
-  # filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
+  filter(admission_dttm >= as.Date(admission_date_min) & admission_dttm <= as.Date(admission_date_max)) %>%
   collect()
 
 # Start cohort tracking
@@ -195,7 +195,7 @@ resp_support_final <- resp_support_min_na[!(device_category == "CPAP" & (is.na(f
 ## Create a new device category column
 vent_modes <- c("SIMV", "Pressure-Regulated Volume Control", 
                 "Assist Control-Volume Control", "Pressure Support/CPAP", 
-                "Pressure Control", "Volume Support")
+                "Pressure Control", "Volume Support", "assist control-volume control")
 
 resp_support_final[, device_category_2 := fcase(
   mode_category %in% vent_modes, "Vent",
@@ -246,6 +246,12 @@ names(device_category_lookup) <- device_rank_lookup
 ### Revert back to categories from rank
 device_max[, device_category := device_category_lookup[as.character(device_rank)]]
 
+
+# Free up memory
+rm(resp_support_final)
+rm(resp_support_min_na)
+rm(resp_support)
+
 ### Add to encounters by hour
 hosp_by_hour <- merge(hosp_by_hour, fio2_max, by = c("hospitalization_id", "meas_hour", "meas_date"), all.x = TRUE)
 hosp_by_hour <- merge(hosp_by_hour, device_max, by = c("hospitalization_id", "meas_hour", "meas_date"), all.x = TRUE)
@@ -256,8 +262,7 @@ toc()
 rm(device_max)
 rm(fio2_max)
 rm(hospitalization)
-rm(resp_support_final)
-rm(resp_support_min_na)
+
 
 ## Carry Forward Device Name and FiO2
 ## Carry forward device name until another device is recorded 
@@ -390,7 +395,6 @@ rm(pao2_filled)
 rm(pao2_hours)
 rm(pao2)
 rm(plt_count)
-rm(resp_support)
 rm(vital_min_max_time)
 
 
@@ -712,6 +716,7 @@ rm(pressors_with_weight)
 rm(pressors_wide)
 rm(med_dose_wide)
 rm(med_dose_converted_wide)
+rm(pressors)
 
 toc()
 
