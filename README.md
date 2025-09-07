@@ -40,7 +40,7 @@ Follow instructions in the [config/README.md](config/README.md) file for detaile
 
 ## 2. Set up the project environment
 
-Run `00_renv_restore.R` to set up the project environment
+Run `00_renv_restore.R` to set up the project environment. `renv::init()` in the command line also works.
 
 ## 3. Run code
 
@@ -57,12 +57,38 @@ Rscript code/03_table1.R
 Rscript code/04_model_training.R
 ```
 
-1.  `0a_respiratory_support_waterfall.R`. This script runs Nick Ingraham's respiratory waterfall algorithm which will horizontally fill in various device categories. Requires lookup-tables `device_conversion_table_updated` and `device_name_mapper`.
+1.  `0a_respiratory_support_waterfall.R`. This script runs Nick Ingraham's respiratory waterfall algorithm which will horizontally fill in various device categories. Requires lookup-table `device_category_to_conversion.csv`.
 
-2.  `01_cohort_identification.R`. This script creates the cohort dataframe. This script also outputs data needed to create a STROBE diagram. Make sure to specify the correct dates to select from `clif_hospitalization`.
+2.  `01_cohort_identification.R`. *Please remove the comment on line 98 in order to select the correct dates*. This script creates the cohort dataframe. This script also outputs data needed to create a STROBE diagram. Make sure to specify the correct dates to select from `clif_hospitalization`.
 
 3.  `02_feature_set_processing.R`. This script creates the feature set needed to train/test the model.
 
-4.  `03_table1.R`. This script outputs data needed to create a Table 1. It also outputs a STROBE diagram.
+4.  `03_table1.R`. This script outputs data needed to create a Table 1. It also outputs a very basic STROBE diagram.
 
 5.  `04_model_training.R` This script trains the models and outputs the results.
+
+6.  `05_training_visuals.R`. This script is still a *work in progress*. It provides tables to create confusion matrices, calibration plots, and allocation efficiency plots for each training model object.
+
+## 4. Exporting Results
+
+Please read this next section carefully.
+
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+-----------------+
+| Script **\#** | Output                                                                                                                                                                      | Destination                  | Safe to Export? |
++===============+=============================================================================================================================================================================+==============================+=================+
+| `0a`          | `clif_respiratory_support_processed.parquet`                                                                                                                                | output/intermediate          | No              |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+-----------------+
+| `01`          | 1.  `inclusion_table.csv`                                                                                                                                                   | 1.  output/exportable        | 1.  Yes         |
+|               |                                                                                                                                                                             |                              |                 |
+|               | 2.  `sipa_clif_cohort.parquet`                                                                                                                                              | 2.  output/intermediate      | 2.  No          |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+-----------------+
+| `02`          | `sipa_features.parquet`                                                                                                                                                     | output/final                 | No              |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+-----------------+
+| `03`          | 1.  `strobe_diagram.png`                                                                                                                                                    | 1.  output/exportable        | 1.  Yes         |
+|               | 2.  `table1.csv`                                                                                                                                                            |                              |                 |
+|               |                                                                                                                                                                             | 2.  output/exportable        | 2.  Yes         |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+-----------------+
+| `04`          | 1.  `best_model.rds` or `best_model.txt`                                                                                                                                    | 1.  output/exportable/models | 1.  Yes         |
+|               | 2.  `.txt` and `.rds` files for every model object                                                                                                                          | 2.  output/exportable/models | 2.  Yes\*       |
+|               |     -   All data contained in these objects is set to NULL prior to saving. This is done explicitly; please ensure that no data is in any of the rds files prior to export. |                              |                 |
++---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+-----------------+
