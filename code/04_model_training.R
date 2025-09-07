@@ -19,7 +19,7 @@ set.seed(42) # the meaning of life
 # Clear environment
 
 # Load data
-data <- read_parquet(paste0(output_path, "/sipa_features.parquet"))
+data <- read_parquet(file.path(output_path, "final", "sipa_features.parquet"))
 
 tic("Creating input and output vectors.")
 # Define output vector and input matrix. Input matrices:
@@ -153,8 +153,6 @@ glm_sofa_only_pre <- train(
 print(glm_sofa_only_pre)
 
 ## Model 3: SOFA Variables Before and After Life Support Initiation 
-
-set.seed(42) # The meaning of life
 
 # Set up model dataframe
 model_df <- data.frame(
@@ -707,7 +705,7 @@ toc()
 
 tic("Saving models.")
 # Create a directory to save the models
-models_path <- file.path(output_path, "models")
+models_path <- file.path(output_path, "exportable", "models")
 dir.create(models_path, showWarnings = FALSE)
 
 # Remove training data from caret models before saving
@@ -811,9 +809,9 @@ cat("Best AUC:", best_model_info$auc, "\n")
 
 # Save the best model
 if (grepl("LightGBM", best_model_info$name)) {
-  lgb.save(best_model_info$model, file.path(output_path, "best_model.txt"))
+  lgb.save(best_model_info$model, file.path(models_path, "best_model.txt"))
 } else {
-  saveRDS(best_model_info$model, file.path(output_path, "best_model.rds"))
+  saveRDS(best_model_info$model, file.path(models_path, "best_model.rds"))
 }
 
 # Print hyperparameters if they exist
