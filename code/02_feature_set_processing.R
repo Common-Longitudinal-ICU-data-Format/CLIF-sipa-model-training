@@ -22,7 +22,7 @@ data <- read_parquet(file.path(output_path, "intermediate", "sipa_clif_cohort.pa
 # Convert to data.table
 setDT(data)
 
-# Vectorized SOFA score calculation
+# SOFA score calculation
 
 tic()
 compute_sofa_score_vec <- function(p_f, s_f, platelets, bilirubin, map, dopamine, dobutamine, norepinephrine, epinephrine, gcs, creatinine) {
