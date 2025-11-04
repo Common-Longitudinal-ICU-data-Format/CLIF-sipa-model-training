@@ -42,21 +42,21 @@ hosp_sofa_score <- data %>%
 
 # SOFA variables before life support
 sofa_only_pre <- data %>%
-  select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, phenylephrine_pre, norepinephrine_pre, vasopressin_pre, dopamine_pre, dobutamine_pre, milrinone_pre, epinephrine_pre, angiotensin_pre) %>%
+  select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, norepinephrine_eq_pre) %>%
   mutate(across(everything(), ~replace_na(.x, 0)))
 
 # SOFA variables before and after life support
 sofa_only_all <- data %>%
-  select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, phenylephrine_pre, norepinephrine_pre, vasopressin_pre, dopamine_pre, dobutamine_pre, milrinone_pre, epinephrine_pre, angiotensin_pre,p_f_post, s_f_post, platelets_post, bilirubin_post, map_post, gcs_post, creatinine_post, phenylephrine_post, norepinephrine_post, vasopressin_post, dopamine_post, dobutamine_post, milrinone_post, epinephrine_post, angiotensin_post) %>%
+  select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, norepinephrine_eq_pre,p_f_post, s_f_post, platelets_post, bilirubin_post, map_post, gcs_post, creatinine_post, norepinephrine_eq_post) %>%
     mutate(across(everything(), ~replace_na(.x, 0)))
 
 # SOFA variables and age before life support
 sofa_age_pre <- data %>%
-  select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, phenylephrine_pre, norepinephrine_pre, vasopressin_pre, dopamine_pre, dobutamine_pre, milrinone_pre, epinephrine_pre, angiotensin_pre, age_at_admission) %>%
+  select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, norepinephrine_eq_pre, age_at_admission) %>%
   mutate(across(everything(), ~replace_na(.x, 0)))
 
 sofa_age_all <- data %>%
-   select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, phenylephrine_pre, norepinephrine_pre, vasopressin_pre, dopamine_pre, dobutamine_pre, milrinone_pre, epinephrine_pre, angiotensin_pre,p_f_post, s_f_post, platelets_post, bilirubin_post, map_post, gcs_post, creatinine_post, phenylephrine_post, norepinephrine_post, vasopressin_post, dopamine_post, dobutamine_post, milrinone_post, epinephrine_post, angiotensin_post, age_at_admission) %>%
+   select(p_f_pre, s_f_pre, platelets_pre, bilirubin_pre, map_pre, gcs_pre, creatinine_pre, norepinephrine_eq_pre, p_f_post, s_f_post, platelets_post, bilirubin_post, map_post, gcs_post, creatinine_post, norepinephrine_eq_post, age_at_admission) %>%
     mutate(across(everything(), ~replace_na(.x, 0)))
 
 toc()
@@ -260,9 +260,7 @@ for(i in seq_along(folds)) {
   
   gam_model <- gam(
     output ~ s(p_f_pre, k=3) + s(s_f_pre, k=3) + s(platelets_pre, k=3) + s(bilirubin_pre, k=3) +
-             s(map_pre, k=3) + s(gcs_pre, k=3) + s(creatinine_pre, k=3) + s(phenylephrine_pre, k=3) +
-             s(norepinephrine_pre, k=3) + s(vasopressin_pre, k=3) + s(dopamine_pre, k=3) +
-             s(dobutamine_pre, k=3) + s(milrinone_pre, k=3) + s(epinephrine_pre, k=3),
+             s(map_pre, k=3) + s(gcs_pre, k=3) + s(creatinine_pre, k=3) + s(norepinephrine_eq_pre, k=3),
     data = model_df[train_idx, ],
     family = binomial()
   )
@@ -305,15 +303,10 @@ for(i in seq_along(folds)) {
   
   gam_model <- gam(
     output ~ s(p_f_pre, k=3) + s(s_f_pre, k=3) + s(platelets_pre, k=3) + s(bilirubin_pre, k=3) +
-             s(map_pre, k=3) + s(gcs_pre, k=3) + s(creatinine_pre, k=3) + s(phenylephrine_pre, k=3) +
-             s(norepinephrine_pre, k=3) + s(vasopressin_pre, k=3) + s(dopamine_pre, k=3) +
-             s(dobutamine_pre, k=3) + s(milrinone_pre, k=3) + s(epinephrine_pre, k=3) +
+             s(map_pre, k=3) + s(gcs_pre, k=3) + s(creatinine_pre, k=3) + s(norepinephrine_eq_pre, k=3) +
              s(p_f_post, k=3) + s(s_f_post, k=3) + s(platelets_post, k=3) + s(bilirubin_post, k=3) +
              s(map_post, k=3) + s(gcs_post, k=3) + s(creatinine_post, k=3) +
-             s(phenylephrine_post, k=3) + s(norepinephrine_post, k=3) +
-             s(vasopressin_post, k=3) + s(dopamine_post, k=3) +
-             s(dobutamine_post, k=3) + s(milrinone_post, k=3) +
-             s(epinephrine_post, k=3),
+             s(norepinephrine_eq_post, k=3),
     data = model_df[train_idx, ],
     family = binomial()
   )
@@ -357,9 +350,7 @@ for(i in seq_along(folds)) {
   
   gam_model <- gam(
     output ~ s(p_f_pre, k=3) + s(s_f_pre, k=3) + s(platelets_pre, k=3) + s(bilirubin_pre, k=3) +
-             s(map_pre, k=3) + s(gcs_pre, k=3) + s(creatinine_pre, k=3) + s(phenylephrine_pre, k=3) +
-             s(norepinephrine_pre, k=3) + s(vasopressin_pre, k=3) + s(dopamine_pre, k=3) +
-             s(dobutamine_pre, k=3) + s(milrinone_pre, k=3) + s(epinephrine_pre, k=3) +
+             s(map_pre, k=3) + s(gcs_pre, k=3) + s(creatinine_pre, k=3) + s(norepinephrine_eq_pre, k=3) +
              age_at_admission,
     data = model_df[train_idx, ],
     family = binomial()
@@ -403,16 +394,11 @@ for(i in seq_along(folds)) {
   
   gam_model <- gam(
     output ~ s(p_f_pre, k=3) + s(s_f_pre, k=3) + s(platelets_pre, k=3) + s(bilirubin_pre, k=3) +
-             s(map_pre, k=3) + s(gcs_pre, k=3) + s(creatinine_pre, k=3) + s(phenylephrine_pre, k=3) +
-             s(norepinephrine_pre, k=3) + s(vasopressin_pre, k=3) + s(dopamine_pre, k=3) +
-             s(dobutamine_pre, k=3) + s(milrinone_pre, k=3) + s(epinephrine_pre, k=3) +
+             s(map_pre, k=3) + s(gcs_pre, k=3) + s(creatinine_pre, k=3) + s(norepinephrine_eq_pre, k=3) +
              age_at_admission +
              s(p_f_post, k=3) + s(s_f_post, k=3) + s(platelets_post, k=3) + s(bilirubin_post, k=3) +
              s(map_post, k=3) + s(gcs_post, k=3) + s(creatinine_post, k=3) +
-             s(phenylephrine_post, k=3) + s(norepinephrine_post, k=3) +
-             s(vasopressin_post, k=3) + s(dopamine_post, k=3) +
-             s(dobutamine_post, k=3) + s(milrinone_post, k=3) +
-             s(epinephrine_post, k=3),
+             s(norepinephrine_eq_post, k=3),
     data = model_df[train_idx, ],
     family = binomial()
   )
