@@ -10,6 +10,7 @@
 !*.md
 !renv.lock
 !*.csv
+!*.py
 
 # Ignore RStudio project settings
 .Rproj.user

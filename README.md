@@ -44,7 +44,7 @@ Run `00_renv_restore.R` to set up the project environment. `renv::init()` in the
 
 ## 3. Run code
 
-Please read items 1-5 carefully. Run code in the following order:
+Please read items 1-6 carefully. Run code in the following order:
 
 ```{bash}
 #!/bin/bash
@@ -52,31 +52,35 @@ Please read items 1-5 carefully. Run code in the following order:
 # This script runs the R scripts in the correct order.
 Rscript code/0a_respiratory_support_waterfall.R
 Rscript code/01_cohort_identification.R
-Rscript code/02_feature_set_processing.R
-Rscript code/03_table1.R
-Rscript code/04_model_training.R
+python3 02_sofa2_calculation.py
+Rscript code/03_feature_set_processing.R
+Rscript code/04_table1.R
+Rscript code/05_model_training.R
 ```
 
 1.  `0a_respiratory_support_waterfall.R`. This script runs Nick Ingraham's respiratory waterfall algorithm which will horizontally fill in various device categories. Requires lookup-table `device_category_to_conversion.csv`.
 
 2.  `01_cohort_identification.R`. *Please remove the comment on line 98 in order to select the correct dates*. This script creates the cohort dataframe. This script also outputs data needed to create a STROBE diagram. Make sure to specify the correct dates to select from `clif_hospitalization`.
 
-3.  `02_feature_set_processing.R`. This script creates the feature set needed to train/test the model.
+3.  `02_sofa2_calculation.py`. This script calculates the SOFA score for each hospitalization in the cohort. The output dataframe contains most information needed for each hospitalization. It outputs a parquet file that is read in by `03_feature_set_processing.R`.
 
-4.  `03_table1.R`. This script outputs data needed to create a Table 1. It also outputs a very basic STROBE diagram.
+4.  `03_feature_set_processing.R`. This script creates the feature set needed to train/test the models. It merges the output from cohort_identification with sofa2_calculation.
 
-5.  `04_model_training.R` This script trains the models and outputs the results.
+5.  `04_table1.R`. This script outputs data needed to create a Table 1. It also outputs a very basic STROBE diagram.
 
-6.  `05_training_visuals.R`. This script is still a *work in progress*. It provides tables to create confusion matrices, calibration plots, and allocation efficiency plots for each training model object.
+6.  `05_model_training.R` This script trains the models and outputs the results.
+
+7.  `06_training_visuals.R`. This script is still a *work in progress*. It provides tables to create confusion matrices, calibration plots, and allocation efficiency plots for each training model object.
 
 ## 4. Exporting Results
 
 Please read this next section carefully.
 
-| Script **#** | Output                                                                                                               | Destination                  | Safe to Export? |
-|--------------|----------------------------------------------------------------------------------------------------------------------|------------------------------|-----------------|
-| `0a`         | `clif_respiratory_support_processed.parquet`                                                                         | output/intermediate          | No              |
-| `01`         | 1. `inclusion_table.csv`<br>2. `sipa_clif_cohort.parquet`                                                            | 1. output/exportable<br>2. output/intermediate | 1. Yes<br>2. No |
-| `02`         | `sipa_features.parquet`                                                                                              | output/final                 | No              |
-| `03`         | 1. `strobe_diagram.png`<br>2. `table1.csv`                                                                           | 1. output/exportable<br>2. output/exportable | 1. Yes<br>2. Yes |
-| `04`         | 1. `best_model.rds` or `best_model.txt`<br>2. `.txt` and `.rds` files for every model object<br>- Data in rds files is set to NULL before saving | 1. output/exportable/models<br>2. output/exportable/models | 1. Yes<br>2. Yes* |
+| Script **\#** | Output | Destination | Safe to Export? |
+|-----------|---------------------------------------|-----------|-----------|
+| `0a` | `clif_respiratory_support_processed.parquet` | output/intermediate | No |
+| `01` | 1\. `inclusion_table.csv`<br>2. `sipa_clif_cohort.parquet` | 1\. output/exportable<br>2. output/intermediate | 1\. Yes<br>2. No |
+| `02` | 1\. `clif_sofa2_scores.parquet` <br> 2. `sofa2_summary.csv` | 1.output/intermediate <br> 2. output/intermediate | 1\. No <br> 2. No |
+| `03` | `sipa_features.parquet` | output/final | No |
+| `04` | 1\. `table1.csv` | 1\. output/exportable | 1\. Yes |
+| `05` | 1\. `best_model.rds` or `best_model.txt`<br>2. `.txt` and `.rds` files for every model object<br>- Data in rds files is set to NULL before saving | 1\. output/exportable/models<br>2. output/exportable/models | 1\. Yes<br>2. Yes\* |
