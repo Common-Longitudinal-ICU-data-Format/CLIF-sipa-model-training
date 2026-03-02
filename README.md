@@ -60,7 +60,7 @@ Rscript code/05_model_training.R
 
 1.  `0a_respiratory_support_waterfall.R`. This script runs Nick Ingraham's respiratory waterfall algorithm which will horizontally fill in various device categories. Requires lookup-table `device_category_to_conversion.csv`.
 
-2.  `01_cohort_identification.R`. *Please remove the comment on line 98 in order to select the correct dates*. This script creates the cohort dataframe. This script also outputs data needed to create a STROBE diagram. Make sure to specify the correct dates to select from `clif_hospitalization`.
+2.  `01_cohort_identification.R`. *Please remove the comment on line 105 in order to select the correct dates*. This script creates the cohort dataframe. This script also outputs data needed to create a STROBE diagram. Make sure to specify the correct dates to select from `clif_hospitalization`.
 
 3.  `02_sofa2_calculation.py`. This script calculates the SOFA score for each hospitalization in the cohort. The output dataframe contains most information needed for each hospitalization. It outputs a parquet file that is read in by `03_feature_set_processing.R`.
 
