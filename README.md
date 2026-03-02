@@ -40,7 +40,7 @@ Follow instructions in the [config/README.md](config/README.md) file for detaile
 
 ## 2. Set up the project environment
 
-Run `00_renv_restore.R` to set up the project environment. `renv::init()` in the command line also works.
+Run `00_renv_restore.R` to set up the project environment. `renv::init()` in the command line also works. In addition, please download the latest SOFA-2 function: ``` pip install git+https://github.com/Common-Longitudinal-ICU-data-Format/clifpy.git@add-sofa-2 ``` or ```uv pip install git+https://github.com/Common-Longitudinal-ICU-data-Format/clifpy.git@add-sofa-2 ```
 
 ## 3. Run code
 
@@ -49,7 +49,7 @@ Please read items 1-6 carefully. Run code in the following order:
 ```{bash}
 #!/bin/bash
 
-# This script runs the R scripts in the correct order.
+# This script runs the project scripts in the correct order.
 Rscript code/0a_respiratory_support_waterfall.R
 Rscript code/01_cohort_identification.R
 python3 02_sofa2_calculation.py
