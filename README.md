@@ -40,7 +40,7 @@ Follow instructions in the [config/README.md](config/README.md) file for detaile
 
 ## 2. Set up the project environment
 
-Run `00_renv_restore.R` to set up the project environment. `renv::init()` in the command line also works.
+Run `00_renv_restore.R` to set up the project environment. `renv::init()` in the command line also works. In addition, please download the latest SOFA-2 function: ``` pip install git+https://github.com/Common-Longitudinal-ICU-data-Format/clifpy.git@add-sofa-2 ``` or ```uv pip install git+https://github.com/Common-Longitudinal-ICU-data-Format/clifpy.git@add-sofa-2 ```
 
 ## 3. Run code
 
@@ -49,7 +49,7 @@ Please read items 1-6 carefully. Run code in the following order:
 ```{bash}
 #!/bin/bash
 
-# This script runs the R scripts in the correct order.
+# This script runs the project scripts in the correct order.
 Rscript code/0a_respiratory_support_waterfall.R
 Rscript code/01_cohort_identification.R
 python3 02_sofa2_calculation.py
@@ -60,7 +60,7 @@ Rscript code/05_model_training.R
 
 1.  `0a_respiratory_support_waterfall.R`. This script runs Nick Ingraham's respiratory waterfall algorithm which will horizontally fill in various device categories. Requires lookup-table `device_category_to_conversion.csv`.
 
-2.  `01_cohort_identification.R`. *Please remove the comment on line 98 in order to select the correct dates*. This script creates the cohort dataframe. This script also outputs data needed to create a STROBE diagram. Make sure to specify the correct dates to select from `clif_hospitalization`.
+2.  `01_cohort_identification.R`. *Please remove the comment on line 105 in order to select the correct dates*. This script creates the cohort dataframe. This script also outputs data needed to create a STROBE diagram. Make sure to specify the correct dates to select from `clif_hospitalization`.
 
 3.  `02_sofa2_calculation.py`. This script calculates the SOFA score for each hospitalization in the cohort. The output dataframe contains most information needed for each hospitalization. It outputs a parquet file that is read in by `03_feature_set_processing.R`.
 
