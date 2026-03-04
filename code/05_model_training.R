@@ -7,12 +7,14 @@ library(tictoc)
 library(mgcv)
 library(lightgbm)
 library(tidyverse)
+library(glue)
 library(glmnet)
 
 rm(list = ls())
 
 source("utils/config.R")
 output_path <- config$output_path
+site_name <- config$site_name
 
 set.seed(42) # the meaning of life
 
@@ -388,23 +390,23 @@ glmnet_sofa_age_pre$trainingData <- NULL
 glmnet_sofa_age_all$trainingData <- NULL
 
 # Save models
-saveRDS(glm_sofa_score, file.path(models_path, "glm_sofa_score.rds"))
-saveRDS(glm_sofa_only_pre, file.path(models_path, "glm_sofa_only_pre.rds"))
-saveRDS(glm_sofa_only_all, file.path(models_path, "glm_sofa_only_all.rds"))
-saveRDS(glm_sofa_age_pre, file.path(models_path, "glm_sofa_age_pre.rds"))
-saveRDS(glm_sofa_age_all, file.path(models_path, "glm_sofa_age_all.rds"))
-saveRDS(gam_sofa_only_pre, file.path(models_path, "gam_sofa_only_pre.rds"))
-saveRDS(gam_sofa_only_all, file.path(models_path, "gam_sofa_only_all.rds"))
-saveRDS(gam_sofa_age_pre, file.path(models_path, "gam_sofa_age_pre.rds"))
-saveRDS(gam_sofa_age_all, file.path(models_path, "gam_sofa_age_all.rds"))
-saveRDS(glmnet_sofa_only_pre, file.path(models_path, "glmnet_sofa_only_pre.rds"))
-saveRDS(glmnet_sofa_only_all, file.path(models_path, "glmnet_sofa_only_all.rds"))
-saveRDS(glmnet_sofa_age_pre, file.path(models_path, "glmnet_sofa_age_pre.rds"))
-saveRDS(glmnet_sofa_age_all, file.path(models_path, "glmnet_sofa_age_all.rds"))
-lgb.save(lightgbm_sofa_only_pre, file.path(models_path, "lightgbm_sofa_only_pre.txt"))
-lgb.save(lightgbm_sofa_only_all, file.path(models_path, "lightgbm_sofa_only_all.txt"))
-lgb.save(lightgbm_sofa_age_pre, file.path(models_path, "lightgbm_sofa_age_pre.txt"))
-lgb.save(lightgbm_sofa_age_all, file.path(models_path, "lightgbm_sofa_age_all.txt"))
+saveRDS(glm_sofa_score, file.path(models_path, glue("glm_sofa_score_{site_name}.rds")))
+saveRDS(glm_sofa_only_pre, file.path(models_path, glue("glm_sofa_only_pre_{site_name}.rds")))
+saveRDS(glm_sofa_only_all, file.path(models_path, glue("glm_sofa_only_all_{site_name}.rds")))
+saveRDS(glm_sofa_age_pre, file.path(models_path, glue("glm_sofa_age_pre_{site_name}.rds")))
+saveRDS(glm_sofa_age_all, file.path(models_path, glue("glm_sofa_age_all_{site_name}.rds")))
+saveRDS(gam_sofa_only_pre, file.path(models_path, glue("gam_sofa_only_pre_{site_name}.rds")))
+saveRDS(gam_sofa_only_all, file.path(models_path, glue("gam_sofa_only_all_{site_name}.rds")))
+saveRDS(gam_sofa_age_pre, file.path(models_path, glue("gam_sofa_age_pre_{site_name}.rds")))
+saveRDS(gam_sofa_age_all, file.path(models_path, glue("gam_sofa_age_all_{site_name}.rds")))
+saveRDS(glmnet_sofa_only_pre, file.path(models_path, glue("glmnet_sofa_only_pre_{site_name}.rds")))
+saveRDS(glmnet_sofa_only_all, file.path(models_path, glue("glmnet_sofa_only_all_{site_name}.rds")))
+saveRDS(glmnet_sofa_age_pre, file.path(models_path, glue("glmnet_sofa_age_pre_{site_name}.rds")))
+saveRDS(glmnet_sofa_age_all, file.path(models_path, glue("glmnet_sofa_age_all_{site_name}.rds")))
+lgb.save(lightgbm_sofa_only_pre, file.path(models_path, glue("lightgbm_sofa_only_pre_{site_name}.txt")))
+lgb.save(lightgbm_sofa_only_all, file.path(models_path, glue("lightgbm_sofa_only_all_{site_name}.txt")))
+lgb.save(lightgbm_sofa_age_pre, file.path(models_path, glue("lightgbm_sofa_age_pre_{site_name}.txt")))
+lgb.save(lightgbm_sofa_age_all, file.path(models_path, glue("lightgbm_sofa_age_all_{site_name}.txt")))
 
 # Save summary of results
 model_summary <- list(
@@ -426,7 +428,7 @@ model_summary <- list(
   lgbm_sofa_age_pre_auc = lightgbm_sofa_age_pre_results$best_score,
   lgbm_sofa_age_all_auc = lightgbm_sofa_age_all_results$best_score
 )
-saveRDS(model_summary, file.path(models_path, "model_summary.rds"))
+saveRDS(model_summary, file.path(models_path, glue("model_summary_{site_name}.rds")))
 
 toc()
 print("Finished.")

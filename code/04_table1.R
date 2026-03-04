@@ -46,7 +46,7 @@ data <- data_raw %>%
     gcs = mean(gcs, na.rm = TRUE),
     map = mean(map, na.rm = TRUE),
     creatinine = mean(creatinine, na.rm = TRUE),
-    biliubin = mean(biliubin, na.rm = TRUE),
+    bilirubin = mean(bilirubin, na.rm = TRUE),
     potassium = mean(potassium, na.rm = TRUE),
     ph = mean(ph, na.rm = TRUE),
     bicarbonate = mean(bicarbonate, na.rm = TRUE),
@@ -90,7 +90,7 @@ var_display_names <- list(
   "gcs" = "Glasgow Coma Scale (Median, IQR; 10th-90th Decile; NA)",
   "map" = "Mean Arterial Pressure (Median, IQR; 10th-90th Decile; NA)",
   "creatinine" = "Creatinine (Median, IQR; 10th-90th Decile; NA)",
-  "biliubin" = "Bilirubin (Median, IQR; 10th-90th Decile; NA)",
+  "bilirubin" = "Bilirubin (Median, IQR; 10th-90th Decile; NA)",
   "potassium" = "Potassium (Median, IQR; 10th-90th Decile; NA)",
   "ph" = "pH (Median, IQR; 10th-90th Decile; NA)",
   "bicarbonate" = "Bicarbonate (Median, IQR; 10th-90th Decile; NA)",
@@ -176,6 +176,6 @@ table1_df <- tibble::tibble(
 )
 
 # Export as a separate CSV file
-write.csv(table1_df, file.path(output_path, "exportable", "table1.csv"), row.names = FALSE)
+write.csv(table1_df, file.path(output_path, "exportable", glue("table1_{site_name}.csv")), row.names = FALSE)
 print("Table 1 exported as CSV to output/exportable")
 toc()
