@@ -59,8 +59,7 @@ true_tables <- list("clif_medication_admin_continuous",
                     "clif_respiratory_support",
                     "clif_labs", 
                     "clif_vitals", 
-                    "clif_patient_assessments", 
-                    "clif_patient_assessments_raw_gcs")
+                    "clif_patient_assessments")
 
 # Dates REQUIRED YYYY-MM-DD format
 admission_date_min <-"2018-01-01"
