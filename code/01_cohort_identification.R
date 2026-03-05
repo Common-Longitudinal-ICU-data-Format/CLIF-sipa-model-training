@@ -1,5 +1,4 @@
 # Cohort Identification script for subsequent feature set processing
-# Requires 0a_respiratory_support_waterfall
 
 # Load libraries
 
@@ -185,8 +184,9 @@ toc()
 # Respiratory Support -----------------------------------------------------
 tic("Respiratory Support Data Processing")
 ## Load data and rename columns
-## The loaded file was processed by the script: 0a_respiratory_support_waterfall.R
-resp_support <- read_parquet(file.path(output_path, "intermediate", "clif_respiratory_support_processed.parquet"))
+resp_support <- tbl(con, "clif_respiratory_support") %>%
+  collect() %>%
+  mutate(across(c(device_name, device_category, mode_category), tolower))
 
 # Convert to data.table
 setDT(resp_support)
@@ -207,7 +207,7 @@ resp_support_min_na[, n_na := NULL]
 resp_support_min_na <- unique(resp_support_min_na, by = c("hospitalization_id", "meas_hour", "meas_date"))
 
 ## Remove CPAP
-resp_support_final <- resp_support_min_na[!(device_category == "cpap" & (is.na(fio2_approx) | fio2_approx < 0.3))]
+resp_support_final <- resp_support_min_na[!(device_category == "cpap" & (is.na(fio2_set) | fio2_set < 0.3))]
 
 ## Create a new device category column
 vent_modes <- c("simv", "pressure-regulated volume control", 
@@ -218,15 +218,15 @@ resp_support_final[, device_category_2 := fcase(
   mode_category %in% vent_modes, "vent",
   device_category == "imv", "vent",
   !is.na(device_category), device_category,
-  is.na(device_category) & fio2_approx == 0.21 & is.na(lpm_set) & is.na(peep_set) & is.na(tidal_volume_set), "room air",
-  is.na(device_category) & is.na(fio2_approx) & lpm_set == 0 & is.na(peep_set) & is.na(tidal_volume_set), "room air",
-  is.na(device_category) & is.na(fio2_approx) & lpm_set <= 20 & lpm_set > 0 & is.na(peep_set) & is.na(tidal_volume_set), "nasal cannula",
-  is.na(device_category) & is.na(fio2_approx) & lpm_set > 20 & is.na(peep_set) & is.na(tidal_volume_set), "high flow nc",
-  device_category == "nasal cannula" & is.na(fio2_approx) & lpm_set > 20, "high flow nc",
+  is.na(device_category) & fio2_set == 0.21 & is.na(lpm_set) & is.na(peep_set) & is.na(tidal_volume_set), "room air",
+  is.na(device_category) & is.na(fio2_set) & lpm_set == 0 & is.na(peep_set) & is.na(tidal_volume_set), "room air",
+  is.na(device_category) & is.na(fio2_set) & lpm_set <= 20 & lpm_set > 0 & is.na(peep_set) & is.na(tidal_volume_set), "nasal cannula",
+  is.na(device_category) & is.na(fio2_set) & lpm_set > 20 & is.na(peep_set) & is.na(tidal_volume_set), "high flow nc",
+  device_category == "nasal cannula" & is.na(fio2_set) & lpm_set > 20, "high flow nc",
   default = device_category)]
 
 ## Select needed columns from resp_support
-resp_support_final <- resp_support_final[, .(hospitalization_id, device_category_2, recorded_dttm, fio2_approx, lpm_set, meas_hour, meas_date)]
+resp_support_final <- resp_support_final[, .(hospitalization_id, device_category_2, recorded_dttm, fio2_set, lpm_set, meas_hour, meas_date)]
 
 ## Create Device Category Ranking
 ## First, rank devices in order to select most intense device used for each hour
@@ -248,7 +248,7 @@ device_rank_lookup <- c(
 resp_support_final[, device_rank := device_rank_lookup[device_category_2]]
 
 ### Max fio2 per hour
-fio2_max <- resp_support_final[!is.na(fio2_approx), .(fio2_approx = max(fio2_approx, na.rm = TRUE)), by = .(hospitalization_id, meas_date, meas_hour)]
+fio2_max <- resp_support_final[!is.na(fio2_set), .(fio2_set = max(fio2_set, na.rm = TRUE)), by = .(hospitalization_id, meas_date, meas_hour)]
 
 ### Group by person, measurement date and measurement hour 
 ### Get most intense device within each hour
@@ -285,10 +285,10 @@ hosp_by_hour <- hosp_by_hour %>%
 ## Carry forward FiO2 measurement until another device is recorded 
 ## or the end of the measurement time window
 hosp_by_hour <- hosp_by_hour %>%
-  mutate(fio2_approx = as.double(fio2_approx)) %>%
+  mutate(fio2_set = as.double(fio2_set)) %>%
   group_by(hospitalization_id, device_filled) %>%
-  fill(fio2_approx, .direction = "down") %>%
-  mutate(fio2_filled = ifelse(is.na(fio2_approx), NA, fio2_approx))
+  fill(fio2_set, .direction = "down") %>%
+  mutate(fio2_filled = ifelse(is.na(fio2_set), NA, fio2_set))
 
 hosp_by_hour <- hosp_by_hour %>% 
   distinct() %>% 
