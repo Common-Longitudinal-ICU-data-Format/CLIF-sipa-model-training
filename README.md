@@ -24,6 +24,8 @@ Please refer to the online [CLIF data dictionary](https://clif-consortium.github
 
 6\. **respiratory_support**: `hospitalization_id`, `recorded_dttm`, `device_category`, `mode_category`, `tracheostomy`, `fio2_set`, `lpm_set`, `resp_rate_set`, `peep_set`, `resp_rate_obs`
 
+7\. **crrt_therapy**: `hospitalization_id`, `recorded_dttm`
+
 ## Cohort identification
 
 The study population included all adults (age \>= 18 years) that were admitted to the intensive care unit and identified as having been on life support for at least six hours. Life support was defined as receiving vasoactive medications, invasive or non-invasive mechanical ventilation, or high-flow/facemask oxygen therapy for hypoxic respiratory failure. In addition, the years selected are **beginning of 2018 through the end of 2023**.
